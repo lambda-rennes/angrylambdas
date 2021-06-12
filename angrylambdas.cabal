@@ -32,9 +32,11 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , chiphunk
+    , gloss
   default-language: Haskell2010
 
-executable angrylambdas-exe
+executable angrylambdas
   main-is: Main.hs
   other-modules:
       Paths_angrylambdas
@@ -44,6 +46,8 @@ executable angrylambdas-exe
   build-depends:
       angrylambdas
     , base >=4.7 && <5
+    , chiphunk
+    , gloss
   default-language: Haskell2010
 
 test-suite angrylambdas-test
@@ -57,4 +61,6 @@ test-suite angrylambdas-test
   build-depends:
       angrylambdas
     , base >=4.7 && <5
+    , chiphunk
+    , gloss
   default-language: Haskell2010
