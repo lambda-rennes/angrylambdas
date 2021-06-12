@@ -1,10 +1,29 @@
 module Main where
 
 import Data.Function ((&))
+import Data.StateVar (StateVar, mapStateVar)
 import GHC.Float
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Simulate
 import Chiphunk.Low
+
+data CollisionType'
+  = GroundCT
+  | BlockCT
+  | BallCT
+  deriving (Eq, Enum, Show)
+
+shapeCollisionType' :: Shape -> StateVar CollisionType'
+shapeCollisionType' =
+  mapStateVar
+    (toEnum . fromEnum)
+    (toEnum . fromEnum)
+  . shapeCollisionType
+
+spaceAddCollisionHandler' :: Space -> CollisionType' -> CollisionType' -> IO CollisionHandlerPtr
+spaceAddCollisionHandler' space ct1 ct2 = spaceAddCollisionHandler space
+  (toEnum $ fromEnum ct1)
+  (toEnum $ fromEnum ct2)
 
 window :: Display
 window = InWindow "Abstract them all" (2000,1000) (500,500)
@@ -116,11 +135,11 @@ main = do
   shapeFriction ballShape $= ballFriction
   shapeElasticity ballShape $= 0.9
 
-  ballCollisionType <- get $ shapeCollisionType ballShape
-  groundCollisionType <- get $ shapeCollisionType ground
+  shapeCollisionType' ballShape $= BallCT
+  shapeCollisionType' ground $= GroundCT
 
   callback <- mkCallbackB collisionCallback
-  colHandlerPtr <- spaceAddCollisionHandler space ballCollisionType groundCollisionType
+  colHandlerPtr <- spaceAddCollisionHandler' space GroundCT BallCT
   modifyCollisionHandler colHandlerPtr $ \colHandler -> pure $ colHandler { chBeginFunc = callback }
 
   let blockDescriptions =
