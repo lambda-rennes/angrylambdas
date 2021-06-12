@@ -1,8 +1,13 @@
-# with (import ./nix {});
-with (import <nixpkgs> {});
-# let srcs = import ./nix/sources.nix;
-#    ghcide-nix = import srcs.ghcide-nix {};
-# in
+let nixos = fetchTarball { 
+  url = "https://releases.nixos.org/nixos/20.09/nixos-20.09.3505.12d9950bf47/nixexprs.tar.xz";
+  sha256 = "0fsl8bsdb8i536pfs4wrp0826h5l84xqlwx32sbz66jg4ykqp9lr";
+}; in
+
+with (import nixos {});
+
+let
+  ghc = haskell.packages.ghc8102.ghcWithPackages (_: []);
+in
 
 stdenv.mkDerivation {
   name = "build-shell";
