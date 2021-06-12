@@ -125,12 +125,15 @@ main = do
   
   world <- createWorld space
 
-  simulateIO window black 60 world render (advanceSim space)
+  simulateIO window black 60 world render (advanceSim space advanceWorld)
 
-advanceSim :: Space -> ViewPort -> Float -> World -> IO World
-advanceSim space _ _ world = do 
+advanceWorld :: ViewPort -> Float -> World -> World
+advanceWorld _ _ world = world
+
+advanceSim :: Space -> (ViewPort -> Float -> World -> World) -> ViewPort -> Float -> World -> IO World
+advanceSim space advance viewport tic world = do 
   spaceStep space (1 / 60)
-  pure world
+  pure $ advance viewport tic world
 
 render :: World -> IO Picture
 render World{blocks, ball} = do
