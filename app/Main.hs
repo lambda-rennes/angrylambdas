@@ -1,3 +1,5 @@
+{-# LANGUAGE NamedFieldPuns #-}
+
 module Main where
 
 import Data.Function ((&))
@@ -116,34 +118,24 @@ renderBlock block = do
 
 main :: IO ()
 main = do
-  
+
   -- Space
   let gravity = Vect 0 (-100)
   space <- createSpace gravity
-
-  -- Ground
-  _ <- createGround space 
-
-  -- Ball 
-  ballBody <- createBall space
   
-  -- Call backs
-  _ <- createCallBacks space
+  world <- createWorld space
 
-  world <- createWorld space blockDescriptions
-
-  simulateIO window black 60 world (render ballBody) (advanceSim space)
+  simulateIO window black 60 world render (advanceSim space)
 
 advanceSim :: Space -> ViewPort -> Float -> World -> IO World
 advanceSim space _ _ world = do 
   spaceStep space (1 / 60)
   pure world
 
-render :: Body -> World -> IO Picture
-render ballBody world = do
-  let blocks' = blocks world 
-  pos <- get $ bodyPosition ballBody
-  blockPictures <- traverse renderBlock blocks'
+render :: World -> IO Picture
+render World{blocks, ball} = do
+  pos <- get $ bodyPosition ball
+  blockPictures <- traverse renderBlock blocks
   pure $ scale 5 5 $ mconcat $
     [ translate (double2Float $ vX pos) (double2Float $ vY pos) $ color red $ circleSolid 5
     , color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
@@ -153,15 +145,26 @@ render ballBody world = do
 
 data World =
   World { blocks :: [Block]
+        , ball :: Ball
         }
 
--- createWorld' :: [BlockDescription] -> IO World
--- createWorld' = 
+createWorld :: Space -> IO World
+createWorld space = do
 
-createWorld :: Space -> [BlockDescription] -> IO World
-createWorld space blockDescriptions = do
+    -- Ground
+    _ <- createGround space 
+    
+    -- Blocks
     blocks <- traverse (createBlock space) blockDescriptions
-    pure $ World blocks
+    
+    -- Ball 
+    ballBody <- createBall space
+
+    -- Call backs
+    _ <- createCallBacks space
+
+    -- World
+    pure $ World blocks ballBody
 
 type Ground = Shape
 
