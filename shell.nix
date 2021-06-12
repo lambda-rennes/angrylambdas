@@ -6,26 +6,21 @@ let nixos = fetchTarball {
 with (import nixos {});
 
 let
-  ghc = haskell.packages.ghc8102.ghcWithPackages (_: []);
+  ghc = haskell.packages.ghc884.ghcWithPackages (_: []);
 in
 
 stdenv.mkDerivation {
   name = "build-shell";
   buildInputs = [
     cabal-install
-    # mesa_drivers
-    # mesa_noglu.drivers
     libGL
-    # mesa_glu
     libGLU
-    # libGL_driver
     glxinfo
     git
     freeglut
     zlib
-    haskell.compiler.ghc8101
-    # ghcide-nix.ghcide-ghc865
-    # vscode
+    haskell.compiler.ghc884
+    stack
   ];
   shellHook = ''
     export PATH="$PATH:$PWD/bin"
