@@ -117,44 +117,18 @@ renderBlock block = do
 main :: IO ()
 main = do
   
-  let gravity = Vect 0 (-100)
   -- Space
-  space <- spaceNew
-  spaceGravity space $= gravity
+  let gravity = Vect 0 (-100)
+  space <- createSpace gravity
 
   -- Ground
-  static <- get $ spaceStaticBody space
-  ground <- segmentShapeNew static groundA groundB 0
-
-  shapeFriction ground $= groundFriction
-  shapeElasticity ground $= 0.9
-  groundCollisionType <- get $ shapeCollisionType ground
-  
-  spaceAddShape space ground
+  _ <- createGround space 
 
   -- Ball 
-  let moment = momentForCircle ballMass 0 ballRadius (Vect 0 0)
-
-  ballBody <- bodyNew ballMass moment
-  spaceAddBody space ballBody
-  bodyPosition ballBody $= initialBallPosition
-  bodyVelocity ballBody $= Vect 50 0
-
-  ballShape <- circleShapeNew ballBody ballRadius (Vect 0 0)
-
-  shapeFriction ballShape $= ballFriction
-  shapeElasticity ballShape $= 0.9
-
-  shapeCollisionType' ballShape $= BallCT
-  shapeCollisionType' ground $= GroundCT
-
-  spaceAddShape space ballShape
-
+  ballBody <- createBall space
   
   -- Call backs
-  callback <- mkCallbackB collisionCallback
-  colHandlerPtr <- spaceAddCollisionHandler' space GroundCT BallCT
-  modifyCollisionHandler colHandlerPtr $ \colHandler -> pure $ colHandler { chBeginFunc = callback }
+  _ <- createCallBacks space
 
   world <- createWorld space blockDescriptions
 
@@ -189,6 +163,29 @@ createWorld space blockDescriptions = do
     blocks <- traverse (createBlock space) blockDescriptions
     pure $ World blocks
 
+type Ground = Shape
+
+createGround :: Space -> IO Ground
+createGround space = do
+  spaceBody <- get $ spaceStaticBody space
+  ground <- segmentShapeNew spaceBody groundA groundB 0
+
+  shapeFriction ground $= groundFriction
+  shapeElasticity ground $= 0.9
+  groundCollisionType <- get $ shapeCollisionType ground
+
+  spaceAddShape space ground
+  shapeCollisionType' ground $= GroundCT
+
+  pure ground
+
+type Gravity = Vect
+
+createSpace :: Gravity -> IO Space 
+createSpace gravity = do 
+  space <- spaceNew
+  spaceGravity space $= gravity
+  pure space
 
 blockDescriptions :: [BlockDescription]
 blockDescriptions =
@@ -208,3 +205,33 @@ blockDescriptions =
       , bdescAngle = 3.1415/2
       }
     ]
+
+type Ball = Body
+
+createBall :: Space -> IO Ball
+createBall space = do
+  let moment = momentForCircle ballMass 0 ballRadius (Vect 0 0)
+
+  ballBody <- bodyNew ballMass moment
+  spaceAddBody space ballBody
+  bodyPosition ballBody $= initialBallPosition
+  bodyVelocity ballBody $= Vect 50 0
+
+  ballShape <- circleShapeNew ballBody ballRadius (Vect 0 0)
+
+  shapeFriction ballShape $= ballFriction
+  shapeElasticity ballShape $= 0.9
+
+  shapeCollisionType' ballShape $= BallCT
+  
+
+  spaceAddShape space ballShape
+
+  pure ballBody
+
+createCallBacks :: Space -> IO ()
+createCallBacks space = do
+  callback <- mkCallbackB collisionCallback
+  colHandlerPtr <- spaceAddCollisionHandler' space GroundCT BallCT
+  modifyCollisionHandler colHandlerPtr $ \colHandler -> pure $ colHandler { chBeginFunc = callback }
+  pure ()
