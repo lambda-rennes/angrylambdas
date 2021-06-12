@@ -66,6 +66,12 @@ data Block =
    }
 
 
+-- data Object a =
+--   Object
+--     { data :: a
+--     ,  :: Body
+--     }
+
 createBlock :: Space -> BlockDescription -> IO Block
 createBlock space bdesc = do
     blockBody <- bodyNew blockMass blockMoment
@@ -110,19 +116,23 @@ renderBlock block = do
 
 main :: IO ()
 main = do
+  
   let gravity = Vect 0 (-100)
-
-  -- Create an empty space.
+  -- Space
   space <- spaceNew
   spaceGravity space $= gravity
 
+  -- Ground
   static <- get $ spaceStaticBody space
   ground <- segmentShapeNew static groundA groundB 0
+
   shapeFriction ground $= groundFriction
   shapeElasticity ground $= 0.9
-  -- shapeSurfaceVelocity ground $= Vect 20 0
+  groundCollisionType <- get $ shapeCollisionType ground
+  
   spaceAddShape space ground
 
+  -- Ball 
   let moment = momentForCircle ballMass 0 ballRadius (Vect 0 0)
 
   ballBody <- bodyNew ballMass moment
@@ -131,49 +141,70 @@ main = do
   bodyVelocity ballBody $= Vect 50 0
 
   ballShape <- circleShapeNew ballBody ballRadius (Vect 0 0)
-  spaceAddShape space ballShape
+
   shapeFriction ballShape $= ballFriction
   shapeElasticity ballShape $= 0.9
 
   shapeCollisionType' ballShape $= BallCT
   shapeCollisionType' ground $= GroundCT
 
+  spaceAddShape space ballShape
+
+  
+  -- Call backs
   callback <- mkCallbackB collisionCallback
   colHandlerPtr <- spaceAddCollisionHandler' space GroundCT BallCT
   modifyCollisionHandler colHandlerPtr $ \colHandler -> pure $ colHandler { chBeginFunc = callback }
 
-  let blockDescriptions =
-        [ BlockDescription
-          { bdescPosition = Vect 50 25
-          , bdescDimensions = Vect 5 50
-          , bdescAngle = 0
-          }
-        , BlockDescription
-          { bdescPosition = Vect 70 25
-          , bdescDimensions = Vect 5 50
-          , bdescAngle = 0
-          }
+  world <- createWorld space blockDescriptions
 
-        , BlockDescription
-          { bdescPosition = Vect 60 55
-          , bdescDimensions = Vect 5 50
-          , bdescAngle = 3.1415/2
-          }
+  simulateIO window black 60 world (render ballBody) (advanceSim space)
 
-        ]
-
-  blocks <- traverse (createBlock space) blockDescriptions
-
-  simulateIO window black 60 () (render ballBody blocks) (\_ _ () -> advanceSim space)
-
-advanceSim space =
+advanceSim :: Space -> ViewPort -> Float -> World -> IO World
+advanceSim space _ _ world = do 
   spaceStep space (1 / 60)
+  pure world
 
-render ballBody blocks _ = do
+render :: Body -> World -> IO Picture
+render ballBody world = do
+  let blocks' = blocks world 
   pos <- get $ bodyPosition ballBody
-  blockPictures <- traverse renderBlock blocks
+  blockPictures <- traverse renderBlock blocks'
   pure $ scale 5 5 $ mconcat $
     [ translate (double2Float $ vX pos) (double2Float $ vY pos) $ color red $ circleSolid 5
     , color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
     blockPictures
+
+
+data World =
+  World { blocks :: [Block]
+        }
+
+-- createWorld' :: [BlockDescription] -> IO World
+-- createWorld' = 
+
+createWorld :: Space -> [BlockDescription] -> IO World
+createWorld space blockDescriptions = do
+    blocks <- traverse (createBlock space) blockDescriptions
+    pure $ World blocks
+
+
+blockDescriptions :: [BlockDescription]
+blockDescriptions =
+   [ BlockDescription
+      { bdescPosition = Vect 50 25
+      , bdescDimensions = Vect 5 50
+      , bdescAngle = 0
+      }
+    , BlockDescription
+        { bdescPosition = Vect 70 25
+        , bdescDimensions = Vect 5 50
+        , bdescAngle = 0
+        }
+    , BlockDescription
+      { bdescPosition = Vect 60 55
+      , bdescDimensions = Vect 5 50
+      , bdescAngle = 3.1415/2
+      }
+    ]
