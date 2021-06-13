@@ -147,11 +147,23 @@ main = do
   playIO window black 60 world render handleEvent (advanceSim space advanceWorld)
 
 
+maxGrabDist = 300.0
+
 handleEvent :: Event -> World -> IO World
-handleEvent (EventMotion mousePos) world@World{ball' = (ball@Ball'{ballGrabbed = (Grabbed ballInitPos)}) }  | distance ballInitPos mousePos <= 300.0
+handleEvent (EventMotion mousePos@(mX, mY)) world@World{ball' = (ball@Ball'{ballGrabbed = (Grabbed ballInitPos@(iX, iY))}) } 
   = do
+      let -- Final ball distance from its initial position after grab
+          ballDist = min distFromInitPos maxGrabDist
+          -- Distance between mouse cursor and initial position
+          distFromInitPos = distance ballInitPos mousePos
+          -- Unit vector between ball
+          v@(vX, vY) = ((mX-iX)/distFromInitPos, (mY-iY)/distFromInitPos)
+          -- New Position
+          newPos = (iX + ballDist * vX, iY + ballDist * vY)
+
       print $ "EventMotion" <> show mousePos 
-      pure world{ball' = ball{ballPosition' = mousePos}}
+      pure world{ball' = ball{ballPosition' = newPos}}
+
 handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
             world@World{ball' = (ball@Ball'{ballGrabbed = (Grabbed _)}) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
 handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
