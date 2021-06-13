@@ -10,7 +10,8 @@ import Graphics.Gloss.Interface.IO.Simulate
 import Chiphunk.Low
 
 data CollisionType'
-  = GroundCT
+  = DefaultCT
+  | GroundCT
   | BlockCT
   | BallCT
   deriving (Eq, Enum, Show)
@@ -67,6 +68,16 @@ data Block =
    , blockBody :: Body
    }
 
+
+type Pos = (Float, Float)
+
+data Ball' = 
+  Ball' 
+   { ballPosition :: Pos
+   }
+
+initBall :: Ball' 
+initBall = Ball' (0.0, 0.0)   
 
 -- data Object a =
 --   Object
@@ -130,25 +141,31 @@ main = do
 advanceWorld :: ViewPort -> Float -> World -> World
 advanceWorld _ _ world = world
 
-advanceSim :: Space -> (ViewPort -> Float -> World -> World) -> ViewPort -> Float -> World -> IO World
+advanceSim :: Space 
+           -> (ViewPort -> Float -> World -> World) 
+           -> ViewPort -> Float -> World -> IO World
 advanceSim space advance viewport tic world = do 
   spaceStep space (1 / 60)
   pure $ advance viewport tic world
 
 render :: World -> IO Picture
-render World{blocks, ball} = do
+render World{blocks, ball, ball'} = do
   pos <- get $ bodyPosition ball
   blockPictures <- traverse renderBlock blocks
   pure $ scale 5 5 $ mconcat $
     [ translate (double2Float $ vX pos) (double2Float $ vY pos) $ color red $ circleSolid 5
     , color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
-    blockPictures
+    blockPictures <> [(renderBall ball')]
 
+
+renderBall :: Ball' -> Picture
+renderBall _ = color yellow $ circleSolid 3
 
 data World =
   World { blocks :: [Block]
         , ball :: Ball
+        , ball' :: Ball'
         }
 
 createWorld :: Space -> IO World
@@ -167,7 +184,7 @@ createWorld space = do
     _ <- createCallBacks space
 
     -- World
-    pure $ World blocks ballBody
+    pure $ World blocks ballBody initBall
 
 type Ground = Shape
 
