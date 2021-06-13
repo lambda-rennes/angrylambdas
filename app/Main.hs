@@ -6,7 +6,8 @@ import Data.Function ((&))
 import Data.StateVar (StateVar, mapStateVar)
 import GHC.Float
 import Graphics.Gloss
-import Graphics.Gloss.Interface.IO.Simulate
+import Graphics.Gloss.Interface.IO.Game
+import Graphics.Gloss.Data.ViewPort
 import Chiphunk.Low
 
 data CollisionType'
@@ -136,17 +137,21 @@ main = do
   
   world <- createWorld space
 
-  simulateIO window black 60 world render (advanceSim space advanceWorld)
+  playIO window black 60 world render handleEvent (advanceSim space advanceWorld)
 
-advanceWorld :: ViewPort -> Float -> World -> World
-advanceWorld _ _ world = world
+
+handleEvent :: Event -> World -> IO World
+handleEvent _ world = pure world
+
+advanceWorld :: Float -> World -> World
+advanceWorld _ world = world
 
 advanceSim :: Space 
-           -> (ViewPort -> Float -> World -> World) 
-           -> ViewPort -> Float -> World -> IO World
-advanceSim space advance viewport tic world = do 
+           -> (Float -> World -> World) 
+           -> Float -> World -> IO World
+advanceSim space advance tic world = do 
   spaceStep space (1 / 60)
-  pure $ advance viewport tic world
+  pure $ advance tic world
 
 render :: World -> IO Picture
 render World{blocks, ball, ball'} = do
