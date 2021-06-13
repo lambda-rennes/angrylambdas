@@ -141,6 +141,9 @@ main = do
 
 
 handleEvent :: Event -> World -> IO World
+handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos) world = do 
+  print . show $ mousePos
+  pure world
 handleEvent _ world = pure world
 
 advanceWorld :: Float -> World -> World
