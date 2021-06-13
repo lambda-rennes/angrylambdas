@@ -68,19 +68,24 @@ data Block =
   Block
    { blockDimensions :: Vect
    , blockBody :: Body
-   }
+   } deriving Show
 
+instance Show Body where
+  show _ = "Body..."
 
 type Pos = (Float, Float)
+
+data Grabbed = Grabbed | Free deriving Show
 
 data Ball' = 
   Ball' 
    { ballRadius' :: Float
    , ballPosition' :: Pos
-   }
+   , ballGrabbed :: Grabbed
+   } deriving Show
 
 initBall :: Ball' 
-initBall = Ball' 25.0 (0.0, 0.0)   
+initBall = Ball' 25.0 (0.0, 0.0) Free
 
 -- data Object a =
 --   Object
@@ -143,11 +148,14 @@ main = do
 
 
 handleEvent :: Event -> World -> IO World
-handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos) world = do
-  let ball = ball' world 
-  print . show $ mousePos
-  print . show $ grabCircle (ballRadius' ball) (ballPosition' ball) mousePos
-  pure world
+handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
+            world@World{ball' = (ball@Ball'{ballRadius', ballPosition', ballGrabbed = Grabbed}) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
+handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
+            world@World{ball' = (ball@Ball'{ballRadius', ballPosition', ballGrabbed = Free}) } 
+            | grabCircle ballRadius' ballPosition' mousePos == True = do 
+              let world' = world{ball' = ball{ballGrabbed = Grabbed}}
+              print $ show $ world'
+              pure world'
 handleEvent _ world = pure world
 
 type Radius = Float
@@ -180,13 +188,13 @@ render World{blocks, ball, ball'} = do
 
 
 renderBall :: Ball' -> Picture
-renderBall (Ball' radius' _) = color yellow $ circleSolid radius'
+renderBall (Ball' radius' _ _) = color yellow $ circleSolid radius'
 
 data World =
   World { blocks :: [Block]
         , ball :: Ball
         , ball' :: Ball'
-        }
+        } deriving Show
 
 createWorld :: Space -> IO World
 createWorld space = do
