@@ -75,7 +75,7 @@ instance Show Body where
 
 type Pos = (Float, Float)
 
-data Grabbed = Grabbed | Free deriving Show
+data Grabbed = Grabbed Pos | Free deriving Show
 
 data Ball' = 
   Ball' 
@@ -148,16 +148,16 @@ main = do
 
 
 handleEvent :: Event -> World -> IO World
-handleEvent (EventMotion mousePos) world@World{ball' = (ball@Ball'{ballGrabbed = Grabbed}) } 
+handleEvent (EventMotion mousePos) world@World{ball' = (ball@Ball'{ballGrabbed = (Grabbed ballInitPos)}) }  | distance ballInitPos mousePos <= 300.0
   = do
       print $ "EventMotion" <> show mousePos 
       pure world{ball' = ball{ballPosition' = mousePos}}
 handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
-            world@World{ball' = (ball@Ball'{ballGrabbed = Grabbed}) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
+            world@World{ball' = (ball@Ball'{ballGrabbed = (Grabbed _)}) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
 handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
             world@World{ball' = (ball@Ball'{ballRadius', ballPosition', ballGrabbed = Free}) } 
             | grabCircle ballRadius' ballPosition' mousePos == True = do 
-              let world' = world{ball' = ball{ballGrabbed = Grabbed}}
+              let world' = world{ball' = ball{ballGrabbed = Grabbed mousePos}}
               print $ show $ world'
               pure world'
 handleEvent _ world = pure world
