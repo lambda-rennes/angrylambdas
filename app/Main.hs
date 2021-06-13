@@ -77,15 +77,15 @@ type Pos = (Float, Float)
 
 data Grabbed = Grabbed | Free deriving Show
 
-data Ball' = 
-  Ball' 
-   { ballRadius' :: Float
-   , ballPosition' :: Pos
-   , ballGrabbed :: Grabbed
+data Slingshot = 
+  Slingshot 
+   { slingshotRadius :: Float
+   , slingshotPosition :: Pos
+   , slingshotGrabbed :: Grabbed
    } deriving Show
 
-initBall :: Ball' 
-initBall = Ball' 25.0 (0.0, 0.0) Free
+initBall :: Slingshot 
+initBall = Slingshot 25.0 (0.0, 0.0) Free
 
 -- data Object a =
 --   Object
@@ -153,7 +153,7 @@ ballInitPos :: Pos
 ballInitPos = (0, 0)
 
 handleEvent :: Event -> World -> IO World
-handleEvent (EventMotion mousePos@(mX, mY)) world@World{ball' = (ball@Ball'{ballGrabbed = Grabbed }) } 
+handleEvent (EventMotion mousePos@(mX, mY)) world@World{slingshot = (ball@Slingshot{slingshotGrabbed = Grabbed }) } 
   = do
       let -- Final ball distance from its initial position after grab
           ballDist = min distFromInitPos maxGrabDist
@@ -166,14 +166,14 @@ handleEvent (EventMotion mousePos@(mX, mY)) world@World{ball' = (ball@Ball'{ball
           (iX, iY) = ballInitPos
 
       print $ "EventMotion" <> show mousePos 
-      pure world{ball' = ball{ballPosition' = newPos}}
+      pure world{slingshot = ball{slingshotPosition = newPos}}
 
 handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
-            world@World{ball' = (ball@Ball'{ballGrabbed = Grabbed }) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
+            world@World{slingshot = (ball@Slingshot{slingshotGrabbed = Grabbed }) } = pure $ world{slingshot = ball{slingshotGrabbed = Free}}  
 handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
-            world@World{ball' = (ball@Ball'{ballRadius', ballPosition', ballGrabbed = Free}) } 
-            | grabCircle ballRadius' ballPosition' mousePos == True = do 
-              let world' = world{ball' = ball{ballGrabbed = Grabbed}}
+            world@World{slingshot = (ball@Slingshot{slingshotRadius, slingshotPosition, slingshotGrabbed = Free}) } 
+            | grabCircle slingshotRadius slingshotPosition mousePos == True = do 
+              let world' = world{slingshot = ball{slingshotGrabbed = Grabbed}}
               print $ show $ world'
               pure world'
 handleEvent _ world = pure world
@@ -197,7 +197,7 @@ advanceSim space advance tic world = do
   pure $ advance tic world
 
 render :: World -> IO Picture
-render World{blocks, ball', thrownBalls} = do
+render World{blocks, slingshot, thrownBalls} = do
   thrownBallPositions <- traverse (get . bodyPosition) thrownBalls
   let ballPictures = flip fmap thrownBallPositions $ \(Vect x y) ->
         translate (double2Float x) (double2Float y) $ color red $ circleSolid ballRadius
@@ -206,15 +206,15 @@ render World{blocks, ball', thrownBalls} = do
     [ color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
     ballPictures <>
-    blockPictures <> [(renderBall ball')]
+    blockPictures <> [(renderBall slingshot)]
 
 
-renderBall :: Ball' -> Picture
-renderBall (Ball' radius' (x, y) _) = translate x y $ color yellow $ circleSolid radius'
+renderBall :: Slingshot -> Picture
+renderBall (Slingshot radius' (x, y) _) = translate x y $ color yellow $ circleSolid radius'
 
 data World =
   World { blocks :: [Block]
-        , ball' :: Ball'
+        , slingshot :: Slingshot
         , thrownBalls :: [Ball]
         } deriving Show
 
