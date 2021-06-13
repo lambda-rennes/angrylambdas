@@ -87,8 +87,10 @@ data Slingshot =
    , slingshotGrabbed :: Grabbed
    } deriving Show
 
+initSlingshotPos = (-350, 200)
+
 initBall :: Slingshot 
-initBall = Slingshot 25.0 (0.0, 0.0) Free
+initBall = Slingshot 25.0 initSlingshotPos Free
 
 -- data Object a =
 --   Object
@@ -153,7 +155,7 @@ main = do
 maxGrabDist = 300.0
 
 ballInitPos :: Pos
-ballInitPos = (0, 0)
+ballInitPos = initSlingshotPos
 
 maxInitVelocity :: Floating a => a
 maxInitVelocity = 2500
@@ -188,7 +190,7 @@ handleEvent (EventKey (MouseButton LeftButton) Up _ _)
               newBall <- createBall space ballRadius (Vect (float2Double sX) (float2Double sY)) v
               pure $
                 world
-                  { slingshot = ball{slingshotGrabbed = Free}
+                  { slingshot = initBall
                   , thrownBalls = newBall : thrownBalls
                   } 
 
@@ -228,11 +230,21 @@ render World{blocks, slingshot, thrownBalls} = do
     [ color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
     ballPictures <>
-    blockPictures <> [(renderBall slingshot)]
+    blockPictures <> [(renderSlingshot slingshot)]
 
 
-renderBall :: Slingshot -> Picture
-renderBall (Slingshot radius' (x, y) _) = translate x y $ color yellow $ circleSolid radius'
+
+renderSlingString :: Pos -> Pos -> Picture
+renderSlingString (x1, y1) (x2, y2)= color blue $ Line [(x1, y1), (x2, y2)]
+
+renderSlingBall :: Float -> Pos -> Picture
+renderSlingBall radius (x, y) = translate x y $ color yellow $ circleSolid radius
+
+renderSlingshot :: Slingshot -> Picture
+renderSlingshot (Slingshot radius pos _) = 
+  pictures [ renderSlingString initSlingshotPos pos
+           , renderSlingBall radius pos
+           ]
 
 data World =
   World { space :: Space
