@@ -73,6 +73,9 @@ data Block =
 instance Show Body where
   show _ = "Body..."
 
+instance Show Space where
+  show _ = "Space.."
+
 type Pos = (Float, Float)
 
 data Grabbed = Grabbed | Free deriving Show
@@ -169,7 +172,15 @@ handleEvent (EventMotion mousePos@(mX, mY)) world@World{slingshot = (ball@Slings
       pure world{slingshot = ball{slingshotPosition = newPos}}
 
 handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
-            world@World{slingshot = (ball@Slingshot{slingshotGrabbed = Grabbed }) } = pure $ world{slingshot = ball{slingshotGrabbed = Free}}  
+            world@World{space, slingshot = (ball@Slingshot{slingshotGrabbed = Grabbed }), thrownBalls} = do
+              newBall <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
+
+              pure $
+                world
+                  { slingshot = ball{slingshotGrabbed = Free}
+                  , thrownBalls = newBall : thrownBalls
+                  } 
+
 handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
             world@World{slingshot = (ball@Slingshot{slingshotRadius, slingshotPosition, slingshotGrabbed = Free}) } 
             | grabCircle slingshotRadius slingshotPosition mousePos == True = do 
@@ -213,7 +224,8 @@ renderBall :: Slingshot -> Picture
 renderBall (Slingshot radius' (x, y) _) = translate x y $ color yellow $ circleSolid radius'
 
 data World =
-  World { blocks :: [Block]
+  World { space :: Space
+        , blocks :: [Block]
         , slingshot :: Slingshot
         , thrownBalls :: [Ball]
         } deriving Show
@@ -234,7 +246,7 @@ createWorld space = do
     _ <- createCallBacks space
 
     -- World
-    pure $ World blocks initBall [ballBody]
+    pure $ World space blocks initBall [ballBody]
 
 type Ground = Shape
 
