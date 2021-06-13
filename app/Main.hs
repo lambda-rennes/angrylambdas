@@ -75,7 +75,7 @@ instance Show Body where
 
 type Pos = (Float, Float)
 
-data Grabbed = Grabbed Pos | Free deriving Show
+data Grabbed = Grabbed | Free deriving Show
 
 data Ball' = 
   Ball' 
@@ -149,8 +149,11 @@ main = do
 
 maxGrabDist = 300.0
 
+ballInitPos :: Pos
+ballInitPos = (0, 0)
+
 handleEvent :: Event -> World -> IO World
-handleEvent (EventMotion mousePos@(mX, mY)) world@World{ball' = (ball@Ball'{ballGrabbed = (Grabbed ballInitPos@(iX, iY))}) } 
+handleEvent (EventMotion mousePos@(mX, mY)) world@World{ball' = (ball@Ball'{ballGrabbed = Grabbed }) } 
   = do
       let -- Final ball distance from its initial position after grab
           ballDist = min distFromInitPos maxGrabDist
@@ -160,16 +163,17 @@ handleEvent (EventMotion mousePos@(mX, mY)) world@World{ball' = (ball@Ball'{ball
           v@(vX, vY) = ((mX-iX)/distFromInitPos, (mY-iY)/distFromInitPos)
           -- New Position
           newPos = (iX + ballDist * vX, iY + ballDist * vY)
+          (iX, iY) = ballInitPos
 
       print $ "EventMotion" <> show mousePos 
       pure world{ball' = ball{ballPosition' = newPos}}
 
 handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
-            world@World{ball' = (ball@Ball'{ballGrabbed = (Grabbed _)}) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
+            world@World{ball' = (ball@Ball'{ballGrabbed = Grabbed }) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
 handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
             world@World{ball' = (ball@Ball'{ballRadius', ballPosition', ballGrabbed = Free}) } 
             | grabCircle ballRadius' ballPosition' mousePos == True = do 
-              let world' = world{ball' = ball{ballGrabbed = Grabbed mousePos}}
+              let world' = world{ball' = ball{ballGrabbed = Grabbed}}
               print $ show $ world'
               pure world'
 handleEvent _ world = pure world
@@ -193,13 +197,15 @@ advanceSim space advance tic world = do
   pure $ advance tic world
 
 render :: World -> IO Picture
-render World{blocks, ball, ball'} = do
-  pos <- get $ bodyPosition ball
+render World{blocks, ball', thrownBalls} = do
+  thrownBallPositions <- traverse (get . bodyPosition) thrownBalls
+  let ballPictures = flip fmap thrownBallPositions $ \(Vect x y) ->
+        translate (double2Float x) (double2Float y) $ color red $ circleSolid ballRadius
   blockPictures <- traverse renderBlock blocks
   pure $ mconcat $
-    [ translate (double2Float $ vX pos) (double2Float $ vY pos) $ color red $ circleSolid ballRadius
-    , color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
+    [ color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
+    ballPictures <>
     blockPictures <> [(renderBall ball')]
 
 
@@ -208,8 +214,8 @@ renderBall (Ball' radius' (x, y) _) = translate x y $ color yellow $ circleSolid
 
 data World =
   World { blocks :: [Block]
-        , ball :: Ball
         , ball' :: Ball'
+        , thrownBalls :: [Ball]
         } deriving Show
 
 createWorld :: Space -> IO World
@@ -228,7 +234,7 @@ createWorld space = do
     _ <- createCallBacks space
 
     -- World
-    pure $ World blocks ballBody initBall
+    pure $ World blocks initBall [ballBody]
 
 type Ground = Shape
 
