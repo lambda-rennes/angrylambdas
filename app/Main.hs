@@ -148,8 +148,12 @@ main = do
 
 
 handleEvent :: Event -> World -> IO World
+handleEvent (EventMotion mousePos) world@World{ball' = (ball@Ball'{ballGrabbed = Grabbed}) } 
+  = do
+      print $ "EventMotion" <> show mousePos 
+      pure world{ball' = ball{ballPosition' = mousePos}}
 handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
-            world@World{ball' = (ball@Ball'{ballRadius', ballPosition', ballGrabbed = Grabbed}) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
+            world@World{ball' = (ball@Ball'{ballGrabbed = Grabbed}) } = pure $ world{ball' = ball{ballGrabbed = Free}}  
 handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
             world@World{ball' = (ball@Ball'{ballRadius', ballPosition', ballGrabbed = Free}) } 
             | grabCircle ballRadius' ballPosition' mousePos == True = do 
@@ -188,7 +192,7 @@ render World{blocks, ball, ball'} = do
 
 
 renderBall :: Ball' -> Picture
-renderBall (Ball' radius' _ _) = color yellow $ circleSolid radius'
+renderBall (Ball' radius' (x, y) _) = translate x y $ color yellow $ circleSolid radius'
 
 data World =
   World { blocks :: [Block]
