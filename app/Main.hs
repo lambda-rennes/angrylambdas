@@ -33,10 +33,10 @@ window :: Display
 window = InWindow "Abstract them all" (2000,1000) (500,500)
 
 groundAX, groundAY, groundBX, groundBY :: Floating a => a
-groundAX = -500
-groundAY = 5
-groundBX = 500
-groundBY = 5
+groundAX = -2500
+groundAY = 25
+groundBX = 2500
+groundBY = 25
 
 -- Vertices of the ground
 (groundA, groundB) =
@@ -45,8 +45,9 @@ groundBY = 5
 
 groundFriction = 1
 
-initialBallPosition = Vect 0 50
-ballRadius = 5
+initialBallPosition = Vect 0 250
+ballRadius :: Floating a => a
+ballRadius = 25
 ballMass = 1
 ballFriction = 0.7
 
@@ -79,7 +80,7 @@ data Ball' =
    }
 
 initBall :: Ball' 
-initBall = Ball' 5.0 (0.0, 0.0)   
+initBall = Ball' 25.0 (0.0, 0.0)   
 
 -- data Object a =
 --   Object
@@ -133,7 +134,7 @@ main :: IO ()
 main = do
 
   -- Space
-  let gravity = Vect 0 (-100)
+  let gravity = Vect 0 (-500)
   space <- createSpace gravity
   
   world <- createWorld space
@@ -171,8 +172,8 @@ render :: World -> IO Picture
 render World{blocks, ball, ball'} = do
   pos <- get $ bodyPosition ball
   blockPictures <- traverse renderBlock blocks
-  pure $ scale 5 5 $ mconcat $
-    [ translate (double2Float $ vX pos) (double2Float $ vY pos) $ color red $ circleSolid 5
+  pure $ mconcat $
+    [ translate (double2Float $ vX pos) (double2Float $ vY pos) $ color red $ circleSolid ballRadius
     , color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
     blockPictures <> [(renderBall ball')]
@@ -232,18 +233,18 @@ createSpace gravity = do
 blockDescriptions :: [BlockDescription]
 blockDescriptions =
    [ BlockDescription
-      { bdescPosition = Vect 50 25
-      , bdescDimensions = Vect 5 50
+      { bdescPosition = Vect 250 125
+      , bdescDimensions = Vect 25 250
       , bdescAngle = 0
       }
     , BlockDescription
-        { bdescPosition = Vect 70 25
-        , bdescDimensions = Vect 5 50
+        { bdescPosition = Vect 350 125
+        , bdescDimensions = Vect 25 250
         , bdescAngle = 0
         }
     , BlockDescription
-      { bdescPosition = Vect 60 55
-      , bdescDimensions = Vect 5 50
+      { bdescPosition = Vect 300 275
+      , bdescDimensions = Vect 25 250
       , bdescAngle = 3.1415/2
       }
     ]
