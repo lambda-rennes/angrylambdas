@@ -228,7 +228,7 @@ createWorld space = do
     blocks <- traverse (createBlock space) blockDescriptions
     
     -- Ball 
-    ballBody <- createBall space
+    ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
 
     -- Call backs
     _ <- createCallBacks space
@@ -281,16 +281,21 @@ blockDescriptions =
 
 type Ball = Body
 
-createBall :: Space -> IO Ball
-createBall space = do
-  let moment = momentForCircle ballMass 0 ballRadius (Vect 0 0)
+vect2Pos :: Vect -> Pos
+vect2Pos (Vect x y) = (double2Float x, double2Float y)
+pos2Vect :: Pos -> Vect
+pos2Vect (x, y) = Vect (float2Double x) (float2Double y)
+
+createBall :: Space -> Double -> Vect -> Vect -> IO Ball
+createBall space radius initPos initVelocity = do
+  let moment = momentForCircle ballMass 0 radius (Vect 0 0)
 
   ballBody <- bodyNew ballMass moment
   spaceAddBody space ballBody
-  bodyPosition ballBody $= initialBallPosition
-  bodyVelocity ballBody $= Vect 50 0
+  bodyPosition ballBody $= initPos
+  bodyVelocity ballBody $= initVelocity
 
-  ballShape <- circleShapeNew ballBody ballRadius (Vect 0 0)
+  ballShape <- circleShapeNew ballBody radius (Vect 0 0)
 
   shapeFriction ballShape $= ballFriction
   shapeElasticity ballShape $= 0.9
