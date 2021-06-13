@@ -155,6 +155,9 @@ maxGrabDist = 300.0
 ballInitPos :: Pos
 ballInitPos = (0, 0)
 
+maxInitVelocity :: Floating a => a
+maxInitVelocity = 2500
+
 handleEvent :: Event -> World -> IO World
 handleEvent (EventMotion mousePos@(mX, mY)) world@World{slingshot = (ball@Slingshot{slingshotGrabbed = Grabbed }) } 
   = do
@@ -171,10 +174,18 @@ handleEvent (EventMotion mousePos@(mX, mY)) world@World{slingshot = (ball@Slings
       print $ "EventMotion" <> show mousePos 
       pure world{slingshot = ball{slingshotPosition = newPos}}
 
-handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
-            world@World{space, slingshot = (ball@Slingshot{slingshotGrabbed = Grabbed }), thrownBalls} = do
-              newBall <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
 
+handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
+            world@World{space, slingshot = (ball@Slingshot{slingshotPosition = sPos@(sX, sY), slingshotGrabbed = Grabbed }), thrownBalls} = do
+              let d = distance ballInitPos sPos
+                  initVelocityNorm = maxInitVelocity * d / maxGrabDist
+                  (bX, bY) = ballInitPos
+                  v = Vect
+                    (float2Double $ initVelocityNorm * (bX-sX) / d)
+                    (float2Double $ initVelocityNorm * (bY-sY) / d)
+
+
+              newBall <- createBall space ballRadius (Vect (float2Double sX) (float2Double sY)) v
               pure $
                 world
                   { slingshot = ball{slingshotGrabbed = Free}
