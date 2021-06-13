@@ -74,11 +74,12 @@ type Pos = (Float, Float)
 
 data Ball' = 
   Ball' 
-   { ballPosition :: Pos
+   { ballRadius' :: Float
+   , ballPosition' :: Pos
    }
 
 initBall :: Ball' 
-initBall = Ball' (0.0, 0.0)   
+initBall = Ball' 5.0 (0.0, 0.0)   
 
 -- data Object a =
 --   Object
@@ -141,10 +142,20 @@ main = do
 
 
 handleEvent :: Event -> World -> IO World
-handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos) world = do 
+handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos) world = do
+  let ball = ball' world 
   print . show $ mousePos
+  print . show $ grabCircle (ballRadius' ball) (ballPosition' ball) mousePos
   pure world
 handleEvent _ world = pure world
+
+type Radius = Float
+
+grabCircle :: Radius -> Pos -> Pos -> Bool
+grabCircle radius circlePos clickPos = radius >= distance circlePos clickPos   
+
+distance :: Pos -> Pos -> Float
+distance (x1, y1) (x2, y2) = sqrt $ ( (x2 - x1) ** 2 ) + ( (y2 - y1) ** 2)  
 
 advanceWorld :: Float -> World -> World
 advanceWorld _ world = world
@@ -168,7 +179,7 @@ render World{blocks, ball, ball'} = do
 
 
 renderBall :: Ball' -> Picture
-renderBall _ = color yellow $ circleSolid 3
+renderBall (Ball' radius' _) = color yellow $ circleSolid radius'
 
 data World =
   World { blocks :: [Block]
