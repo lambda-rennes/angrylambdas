@@ -47,7 +47,7 @@ groundFriction = 1
 
 initialBallPosition = Vect 0 250
 ballRadius :: Floating a => a
-ballRadius = 25
+ballRadius = 50
 ballMass = 1
 ballFriction = 0.7
 
@@ -90,7 +90,7 @@ data Slingshot =
 initSlingshotPos = (-350, 200)
 
 initBall :: Slingshot 
-initBall = Slingshot 25.0 initSlingshotPos Free
+initBall = Slingshot ballRadius initSlingshotPos Free
 
 -- data Object a =
 --   Object
@@ -229,11 +229,12 @@ render World{blocks, slingshot, thrownBalls} = do
         translate (double2Float x) (double2Float y) $ color red $ circleSolid ballRadius
   blockPictures <- traverse renderBlock blocks
   lambda <- renderLambda (-400.0, -200.0)
+  slingshot <- renderSlingshot slingshot
   pure $ mconcat $
     [ color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
     ballPictures <>
-    blockPictures <> [(renderSlingshot slingshot)] <> [lambda]
+    blockPictures <> [slingshot] <> [lambda]
 
 
 
@@ -243,26 +244,30 @@ renderSlingString (x1, y1) (x2, y2)= color blue $ Line [(x1, y1), (x2, y2)]
 renderSlingBall :: Radius -> Pos -> Picture
 renderSlingBall radius (x, y) = translate x y $ color yellow $ circleSolid radius
 
-renderSlingshot :: Slingshot -> Picture
-renderSlingshot (Slingshot radius pos _) = 
-  pictures [ renderSlingString initSlingshotPos pos
-           , renderSlingBall radius pos
-           ]
+renderSlingshot :: Slingshot -> IO Picture
+renderSlingshot (Slingshot radius pos _) = do 
+  lambdaText <- renderLambda pos 
+  pure $ pictures [ renderSlingString initSlingshotPos pos
+                  , renderSlingBall radius pos
+                  , lambdaText
+                  ]
 
 
 
 renderLambda :: Pos -> IO Picture
 renderLambda (x, y) = do
   lambdaText <- loadBMP "imgs/lambda.bmp"
-  pure $ pictures [ translate x y $ color violet $ circleSolid 50
-                 , translate ( x - (radius / 2) ) ( y + radius ) $ color white $ circleSolid 17.5
-                 , translate ( x - (radius / 2) +3 ) ( y + radius - 5 ) $ color black $ circleSolid 10.0
-                 , translate ( x + (radius / 2)) ( y + radius ) $ color white $ circleSolid 17.5
-                 , translate ( x + (radius / 2 ) -3) ( y + radius -5  ) $ color black $ circleSolid 10.5
-                 , translate x y $ scale 0.51 0.51 $ lambdaText
+  pure $ translate x y $  
+        pictures [ color violet $ circleSolid r
+                 , translate (- (r / 2)) r $ color white $ circleSolid 17.5
+                 , translate (- (r / 2) + 3 ) ( r - 5 ) $ color black $ circleSolid 10.0
+                 , translate (r / 2) r $ color white $ circleSolid 17.5
+                 , translate ((r / 2 ) -3) ( r -5 ) $ color black $ circleSolid 10.5
+                 , scale 0.51 0.51 $ lambdaText
                  ]
-  where
-    radius = 50
+        where
+          r = 50
+
 
 data World =
   World { space :: Space
