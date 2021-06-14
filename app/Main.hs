@@ -220,24 +220,27 @@ advanceSim space advance tic world = do
   spaceStep space (1 / 60)
   pure $ advance tic world
 
+
+
 render :: World -> IO Picture
 render World{blocks, slingshot, thrownBalls} = do
   thrownBallPositions <- traverse (get . bodyPosition) thrownBalls
   let ballPictures = flip fmap thrownBallPositions $ \(Vect x y) ->
         translate (double2Float x) (double2Float y) $ color red $ circleSolid ballRadius
   blockPictures <- traverse renderBlock blocks
+  lambda <- renderLambda (-400.0, -200.0)
   pure $ mconcat $
     [ color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
     ballPictures <>
-    blockPictures <> [(renderSlingshot slingshot)]
+    blockPictures <> [(renderSlingshot slingshot)] <> [lambda]
 
 
 
 renderSlingString :: Pos -> Pos -> Picture
 renderSlingString (x1, y1) (x2, y2)= color blue $ Line [(x1, y1), (x2, y2)]
 
-renderSlingBall :: Float -> Pos -> Picture
+renderSlingBall :: Radius -> Pos -> Picture
 renderSlingBall radius (x, y) = translate x y $ color yellow $ circleSolid radius
 
 renderSlingshot :: Slingshot -> Picture
@@ -245,6 +248,21 @@ renderSlingshot (Slingshot radius pos _) =
   pictures [ renderSlingString initSlingshotPos pos
            , renderSlingBall radius pos
            ]
+
+
+
+renderLambda :: Pos -> IO Picture
+renderLambda (x, y) = do
+  lambdaText <- loadBMP "imgs/lambda.bmp"
+  pure $ pictures [ translate x y $ color violet $ circleSolid 50
+                 , translate ( x - (radius / 2) ) ( y + radius ) $ color white $ circleSolid 17.5
+                 , translate ( x - (radius / 2) +3 ) ( y + radius - 5 ) $ color black $ circleSolid 10.0
+                 , translate ( x + (radius / 2)) ( y + radius ) $ color white $ circleSolid 17.5
+                 , translate ( x + (radius / 2 ) -3) ( y + radius -5  ) $ color black $ circleSolid 10.5
+                 , translate x y $ scale 0.51 0.51 $ lambdaText
+                 ]
+  where
+    radius = 50
 
 data World =
   World { space :: Space
