@@ -1,9 +1,9 @@
-let nixos = fetchTarball { 
-  url = "https://releases.nixos.org/nixos/20.09/nixos-20.09.3505.12d9950bf47/nixexprs.tar.xz";
-  sha256 = "0fsl8bsdb8i536pfs4wrp0826h5l84xqlwx32sbz66jg4ykqp9lr";
-}; in
+#let nixos = fetchTarball { 
+#  url = "https://releases.nixos.org/nixos/20.09/nixos-20.09.3505.12d9950bf47/nixexprs.tar.xz";
+#  sha256 = "0fsl8bsdb8i536pfs4wrp0826h5l84xqlwx32sbz66jg4ykqp9lr";
+#}; in
 
-with (import nixos {});
+with (import <nixpkgs> {});
 
 let
   ghc = haskell.packages.ghc884.ghcWithPackages (_: []);

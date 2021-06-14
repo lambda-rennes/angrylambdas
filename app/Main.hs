@@ -135,7 +135,7 @@ renderBlock block = do
   pure $
     color white $
     translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $
-    rotate (rad2deg $ double2Float bodyAngle) $
+    rotate (- (rad2deg $ double2Float bodyAngle)) $
     rectangleSolid (double2Float width) (double2Float height)
     -- polygon $
     -- rectanglePath (double2Float width) (double2Float height)
@@ -224,9 +224,10 @@ advanceSim space advance tic world = do
 
 render :: World -> IO Picture
 render World{blocks, slingshot, thrownBalls} = do
-  thrownBallPositions <- traverse (get . bodyPosition) thrownBalls
-  let ballPictures = flip fmap thrownBallPositions $ \(Vect x y) ->
-        translate (double2Float x) (double2Float y) $ color red $ circleSolid ballRadius
+  let getPosAngle body = (,) <$> get (bodyPosition body) <*> get (bodyAngle body)
+  ballPosAngles <- traverse getPosAngle thrownBalls
+  ballPictures <- flip traverse ballPosAngles $ \(Vect x y, angle) ->
+    translate (double2Float x) (double2Float y) . rotate (- (double2Float $ rad2deg angle)) <$> renderLambda (0, 0)
   blockPictures <- traverse renderBlock blocks
   lambda <- renderLambda (-400.0, -200.0)
   slingshot <- renderSlingshot slingshot
@@ -286,13 +287,13 @@ createWorld space = do
     blocks <- traverse (createBlock space) blockDescriptions
     
     -- Ball 
-    ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
+    -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
 
     -- Call backs
     _ <- createCallBacks space
 
     -- World
-    pure $ World space blocks initBall [ballBody]
+    pure $ World space blocks initBall []
 
 type Ground = Shape
 
