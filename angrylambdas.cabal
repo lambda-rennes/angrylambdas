@@ -50,6 +50,7 @@ executable angrylambdas
     , base >=4.7 && <5
     , chiphunk
     , gloss
+    , stm
   default-language: Haskell2010
 
 test-suite angrylambdas-test

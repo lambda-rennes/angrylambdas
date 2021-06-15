@@ -17,14 +17,17 @@ stdenv.mkDerivation {
     libGLU
     glxinfo
     git
+    gmp.dev
+    libffi.dev
     freeglut
     zlib
     haskell.compiler.ghc884
+    haskellPackages.ghcid
     stack
   ];
-  shellHook = ''
+  shellHook = with pkgs; ''
     export PATH="$PATH:$PWD/bin"
   '';
   # I wish we could do without this ugly hack.
-  LD_LIBRARY_PATH = with pkgs; "${libGL}/lib:${mesa_glu}/lib:${freeglut}/lib";
+  LD_LIBRARY_PATH = "${libGL}/lib:${mesa_glu}/lib:${freeglut}/lib:${gmp}/lib:${libffi}/lib";
 }

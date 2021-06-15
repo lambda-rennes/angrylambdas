@@ -1,21 +1,35 @@
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Main where
 
+import Control.Monad (foldM)
 import Data.Function ((&))
 import Data.StateVar (StateVar, mapStateVar)
+import Foreign.Ptr (nullPtr)
 import GHC.Float
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Data.ViewPort
 import Chiphunk.Low
+import Control.Concurrent.STM (STM)
+import qualified Control.Concurrent.STM as STM
+import Control.Concurrent.STM.TQueue (TQueue)
+import qualified Control.Concurrent.STM.TQueue as TQueue
+
 
 data CollisionType'
   = DefaultCT
   | GroundCT
   | BlockCT
   | BallCT
+  | EnemyCT
   deriving (Eq, Enum, Show)
+
+data EnemyCollision = EnemyCollision
+  { enemyCollisionBody :: Enemy
+  , enemyCollisionTotalImpulse :: Vect
+  }
 
 shapeCollisionType' :: Shape -> StateVar CollisionType'
 shapeCollisionType' =
@@ -28,6 +42,10 @@ spaceAddCollisionHandler' :: Space -> CollisionType' -> CollisionType' -> IO Col
 spaceAddCollisionHandler' space ct1 ct2 = spaceAddCollisionHandler space
   (toEnum $ fromEnum ct1)
   (toEnum $ fromEnum ct2)
+
+spaceAddWildcardHandler' :: Space -> CollisionType' -> IO CollisionHandlerPtr
+spaceAddWildcardHandler' space ct1 = spaceAddWildcardHandler space
+  (toEnum $ fromEnum ct1)
 
 window :: Display
 window = InWindow "Abstract them all" (2000,1000) (500,500)
@@ -55,6 +73,14 @@ collisionCallback :: CollisionCallback Bool
 collisionCallback arbiter space _ = do
   putStrLn "COLLISION !"
   pure True
+
+
+enemyCollisionCallback :: TQueue EnemyCollision -> CollisionCallback ()
+enemyCollisionCallback collisionQueue arbiter space _ = do
+  (enemyCollisionBody, _) <- get $ arbiterBodies arbiter
+  enemyCollisionTotalImpulse <- get $ arbiterTotalImpulse arbiter
+  STM.atomically $ TQueue.writeTQueue collisionQueue $ EnemyCollision {..}
+
 
 
 data BlockDescription =
@@ -146,10 +172,11 @@ main = do
   -- Space
   let gravity = Vect 0 (-500)
   space <- createSpace gravity
-  
-  world <- createWorld space
 
-  playIO window black 60 world render handleEvent (advanceSim space advanceWorld)
+  collisionQueue <- STM.atomically TQueue.newTQueue
+  world <- createWorld space collisionQueue
+
+  playIO window black 60 world render handleEvent (advanceSim space collisionQueue advanceWorld)
 
 
 maxGrabDist = 300.0
@@ -173,7 +200,6 @@ handleEvent (EventMotion mousePos@(mX, mY)) world@World{slingshot = (ball@Slings
           newPos = (iX + ballDist * vX, iY + ballDist * vY)
           (iX, iY) = ballInitPos
 
-      print $ "EventMotion" <> show mousePos 
       pure world{slingshot = ball{slingshotPosition = newPos}}
 
 
@@ -198,7 +224,7 @@ handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
             world@World{slingshot = (ball@Slingshot{slingshotRadius, slingshotPosition, slingshotGrabbed = Free}) } 
             | grabCircle slingshotRadius slingshotPosition mousePos == True = do 
               let world' = world{slingshot = ball{slingshotGrabbed = Grabbed}}
-              print $ show $ world'
+              -- print $ show $ world'
               pure world'
 handleEvent _ world = pure world
 
@@ -213,29 +239,51 @@ distance (x1, y1) (x2, y2) = sqrt $ ( (x2 - x1) ** 2 ) + ( (y2 - y1) ** 2)
 advanceWorld :: Float -> World -> World
 advanceWorld _ world = world
 
-advanceSim :: Space 
+advanceSim :: Space
+           -> TQueue EnemyCollision
            -> (Float -> World -> World) 
            -> Float -> World -> IO World
-advanceSim space advance tic world = do 
+advanceSim space collisionQueue advance tic world = do
+  collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
+  let handleCollision world EnemyCollision{enemyCollisionBody, enemyCollisionTotalImpulse} = do
+        let impulse = (vX enemyCollisionTotalImpulse) ** 2 + (vY enemyCollisionTotalImpulse) ** 2
+        case impulse > 100000 of
+          True -> do
+            let iterFunc body shape _ =
+                  spaceRemoveShape space shape
+            bodyEachShape enemyCollisionBody iterFunc nullPtr
+            spaceRemoveBody space enemyCollisionBody
+            pure $ world { enemies = filter (/= enemyCollisionBody) (enemies world) }
+          False ->
+            pure world
+
+  world' <- foldM handleCollision world collisions
   spaceStep space (1 / 60)
-  pure $ advance tic world
+  pure $ advance tic world'
 
 
 
 render :: World -> IO Picture
-render World{blocks, slingshot, thrownBalls} = do
+render World{blocks, slingshot, thrownBalls, enemies} = do
   let getPosAngle body = (,) <$> get (bodyPosition body) <*> get (bodyAngle body)
   ballPosAngles <- traverse getPosAngle thrownBalls
   ballPictures <- flip traverse ballPosAngles $ \(Vect x y, angle) ->
     translate (double2Float x) (double2Float y) . rotate (- (double2Float $ rad2deg angle)) <$> renderLambda (0, 0)
+
+
+  enemyPosAngles <- traverse getPosAngle enemies
+  let enemyPictures = flip fmap enemyPosAngles $ \(Vect x y, angle) ->
+        color yellow .
+        translate (double2Float x) (double2Float y) $ circleSolid ballRadius
+
   blockPictures <- traverse renderBlock blocks
-  lambda <- renderLambda (-400.0, -200.0)
   slingshot <- renderSlingshot slingshot
   pure $ mconcat $
     [ color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
     ] <>
     ballPictures <>
-    blockPictures <> [slingshot] <> [lambda]
+    enemyPictures <>
+    blockPictures <> [slingshot]
 
 
 
@@ -275,10 +323,11 @@ data World =
         , blocks :: [Block]
         , slingshot :: Slingshot
         , thrownBalls :: [Ball]
+        , enemies :: [Enemy]
         } deriving Show
 
-createWorld :: Space -> IO World
-createWorld space = do
+createWorld :: Space -> TQueue EnemyCollision -> IO World
+createWorld space collisionQueue = do
 
     -- Ground
     _ <- createGround space 
@@ -288,12 +337,12 @@ createWorld space = do
     
     -- Ball 
     -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
+    enemy <- createEnemy space ballRadius (Vect 300 400) (Vect 0 0)
 
-    -- Call backs
-    _ <- createCallBacks space
+    _ <- createCallBacks space collisionQueue
 
     -- World
-    pure $ World space blocks initBall []
+    pure $ World space blocks initBall [] [enemy]
 
 type Ground = Shape
 
@@ -339,6 +388,7 @@ blockDescriptions =
     ]
 
 type Ball = Body
+type Enemy = Body
 
 vect2Pos :: Vect -> Pos
 vect2Pos (Vect x y) = (double2Float x, double2Float y)
@@ -366,9 +416,30 @@ createBall space radius initPos initVelocity = do
 
   pure ballBody
 
-createCallBacks :: Space -> IO ()
-createCallBacks space = do
-  callback <- mkCallbackB collisionCallback
-  colHandlerPtr <- spaceAddCollisionHandler' space GroundCT BallCT
-  modifyCollisionHandler colHandlerPtr $ \colHandler -> pure $ colHandler { chBeginFunc = callback }
+createEnemy :: Space -> Double -> Vect -> Vect -> IO Ball
+createEnemy space radius initPos initVelocity = do
+  let moment = momentForCircle ballMass 0 radius (Vect 0 0)
+
+  enemyBody <- bodyNew ballMass moment
+  spaceAddBody space enemyBody
+  bodyPosition enemyBody $= initPos
+  bodyVelocity enemyBody $= initVelocity
+
+  enemyShape <- circleShapeNew enemyBody radius (Vect 0 0)
+
+  shapeFriction enemyShape $= 0.7
+  shapeElasticity enemyShape $= 0
+
+  shapeCollisionType' enemyShape $= EnemyCT
+
+  spaceAddShape space enemyShape
+
+  pure enemyBody
+
+createCallBacks :: Space -> TQueue EnemyCollision -> IO ()
+createCallBacks space collisionQueue = do
+  callback <- mkCallback (enemyCollisionCallback collisionQueue)
+  colHandlerPtr <- spaceAddWildcardHandler' space EnemyCT
+  modifyCollisionHandler colHandlerPtr $ \colHandler -> pure $ colHandler { chPostSolveFunc = callback }
+
   pure ()

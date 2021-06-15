@@ -3,7 +3,21 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    cabal-file:
+      size: 5100
+      sha256: 37dd8efe835471f25cece2fc51512e0535cadfc4c19e0211530d0fe731ff466d
+    name: chiphunk
+    version: 0.1.4.0
+    git: https://github.com/gdeest/Chiphunk.git
+    pantry-tree:
+      size: 6784
+      sha256: b25ddac2b416a1180351d9dc46642e67819679ca1d437a146f9609c97710b002
+    commit: e85e6c80c9ef77e2000d716b39e041f1988adbf0
+  original:
+    git: https://github.com/gdeest/Chiphunk.git
+    commit: e85e6c80c9ef77e2000d716b39e041f1988adbf0
 snapshots:
 - completed:
     size: 533913
