@@ -257,18 +257,8 @@ renderSlingshot (Slingshot radius pos _) = do
 
 renderLambda :: Pos -> IO Picture
 renderLambda (x, y) = do
-  lambdaText <- loadBMP "imgs/lambda.bmp"
-  pure $ translate x y $  
-        pictures [ color violet $ circleSolid r
-                 , translate (- (r / 2)) r $ color white $ circleSolid 17.5
-                 , translate (- (r / 2) + 3 ) ( r - 5 ) $ color black $ circleSolid 10.0
-                 , translate (r / 2) r $ color white $ circleSolid 17.5
-                 , translate ((r / 2 ) -3) ( r -5 ) $ color black $ circleSolid 10.5
-                 , scale 0.51 0.51 $ lambdaText
-                 ]
-        where
-          r = 50
-
+  lambda <- loadBMP "imgs/lambda.bmp"
+  pure $ translate x y $ lambda
 
 data World =
   World { space :: Space
