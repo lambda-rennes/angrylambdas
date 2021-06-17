@@ -53,9 +53,11 @@ window = InWindow "Abstract them all" (2000,1000) (500,500)
 
 groundAX, groundAY, groundBX, groundBY :: Floating a => a
 groundAX = -2500
-groundAY = 25
+groundAY = -250
 groundBX = 2500
-groundBY = 25
+groundBY = -250
+
+
 
 -- Vertices of the ground
 (groundA, groundB) =
@@ -63,6 +65,8 @@ groundBY = 25
   , Vect groundBX groundBY )
 
 groundFriction = 1
+
+
 
 initialBallPosition = Vect 0 250
 ballRadius :: Floating a => a
@@ -125,6 +129,7 @@ initBall = Slingshot ballRadius initSlingshotPos Free
 --     ,  :: Body
 --     }
 
+
 createBlock :: Space -> BlockDescription -> IO Block
 createBlock space bdesc = do
     blockBody <- bodyNew blockMass blockMoment
@@ -151,6 +156,8 @@ createBlock space bdesc = do
 
 rad2deg x = x*180 / 3.1415
 
+
+
 renderBlock :: Block -> IO Picture
 renderBlock block = do
   let Vect width height = block & blockDimensions
@@ -160,12 +167,21 @@ renderBlock block = do
   --   translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $ color red $ circleSolid 5
 
   pure $
-    color white $
     translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $
     rotate (- (rad2deg $ double2Float bodyAngle)) $
     rectangleSolid (double2Float width) (double2Float height)
     -- polygon $
     -- rectanglePath (double2Float width) (double2Float height)
+
+renderWood :: Block -> IO Picture
+renderWood block = do
+  wood <- loadBMP "imgs/882.bmp"
+  bodyPos <- get $ block & blockBody & bodyPosition
+  bodyAngle <- get $ block & blockBody & bodyAngle
+  pure $
+    translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $
+    rotate (- (rad2deg $ double2Float bodyAngle)) $
+    wood
 
 main :: IO ()
 main = do
@@ -267,7 +283,9 @@ advanceSim space collisionQueue advance tic world = do
 
 
 render :: World -> IO Picture
-render World{blocks, slingshot, thrownBalls, enemies} = do
+render World{blocks, slingshot, log', thrownBalls, enemies} = do
+  landscape <- loadBMP "imgs/landscape3.bmp"
+
   let getPosAngle body = (,) <$> get (bodyPosition body) <*> get (bodyAngle body)
   ballPosAngles <- traverse getPosAngle thrownBalls
   ballPictures <- flip traverse ballPosAngles $ \(Vect x y, angle) ->
@@ -279,16 +297,41 @@ render World{blocks, slingshot, thrownBalls, enemies} = do
         color yellow .
         translate (double2Float x) (double2Float y) $ circleSolid ballRadius
 
-  blockPictures <- traverse renderBlock blocks
+  blockPictures <- traverse renderWood blocks
+  lambda <- renderLambda (-400.0, -200.0)
+
   slingshot <- renderSlingshot slingshot
-  pure $ mconcat $
-    [ color yellow $ line [(groundAX, groundAY), (groundBX, groundBY)]
-    ] <>
+  pure $ mconcat $ [landscape] <>
+    [groundPicture] <> [renderLog log'] <>
     ballPictures <>
     enemyPictures <>
     blockPictures <> [slingshot]
 
+leftBankAX, leftBankAY, leftBankBX, leftBankBY :: Floating a => a 
+leftBankAX = -1000
+leftBankAY = -220
+leftBankBX = -310
+leftBankBY = -175
 
+(leftGroundA, leftGroundB) = 
+  ( Vect leftBankAX leftBankAY
+  , Vect leftBankBX leftBankBY ) 
+
+rightBankAX, rightBankAY, rightBankBX, rightBankBY :: Floating a => a 
+rightBankAX = 225
+rightBankAY = -150
+rightBankBX = 1000
+rightBankBY = -100
+
+(rightGroundA, rightGroundB) = 
+  ( Vect rightBankAX rightBankAY
+  , Vect rightBankBX rightBankBY ) 
+
+groundPicture :: Picture
+groundPicture = 
+  pictures [ color yellow $ line [(leftBankAX, leftBankAY), (leftBankBX, leftBankBY)]
+           , color orange $ line [(rightBankAX, rightBankAY), (rightBankBX, rightBankBY)]
+           ]
 
 renderSlingString :: Pos -> Pos -> Picture
 renderSlingString (x1, y1) (x2, y2)= color blue $ Line [(x1, y1), (x2, y2)]
@@ -298,23 +341,62 @@ renderSlingBall radius (x, y) = translate x y $ color yellow $ circleSolid radiu
 
 renderSlingshot :: Slingshot -> IO Picture
 renderSlingshot (Slingshot radius pos _) = do 
-  lambdaText <- renderLambda pos 
+  lambdaBall <- renderLambda pos 
   pure $ pictures [ renderSlingString initSlingshotPos pos
-                  , renderSlingBall radius pos
-                  , lambdaText
+                  , lambdaBall
                   ]
 
+
+data Log = 
+  Log  { logPicture :: Picture
+        , logBody :: Body
+        , logDimension :: Vect
+        } deriving Show
+
+logX, logY :: Floating a => a 
+logX = 0
+logY = -145
+
+renderLog :: Log -> Picture
+renderLog log = logPicture log 
+
+createLog :: Space -> Pos -> IO Log
+createLog space pos = do
+  logImg <- loadBMP "imgs/pitoune.bmp"
+
+  logBody <- bodyNew logMass logMoment
+  spaceAddBody space logBody
+  let Vect width height = logDimension
+  logShape <- boxShapeNew logBody width height 0
+  spaceAddShape space logShape
+
+  shapeFriction logShape $= 0.5
+  shapeElasticity logShape $= 0.8
+
+  bodyPosition logBody $= pos2Vect pos
+  bodyAngle logBody $= 0
+
+  pure $ Log logImg logBody logDimension
+
+  where
+    logMass = 0.5
+    logMoment = momentForBox logMass
+      (logDimension & vX)
+      (logDimension & vY)
+    logRadius = 2
+    logDimension = Vect 700 200
 
 
 renderLambda :: Pos -> IO Picture
 renderLambda (x, y) = do
   lambda <- loadBMP "imgs/lambda.bmp"
-  pure $ translate x y $ lambda
+  pure $ translate x y $ scale 0.69 0.69 $ lambda
 
 data World =
   World { space :: Space
         , blocks :: [Block]
         , slingshot :: Slingshot
+        , log' :: Log
         , thrownBalls :: [Ball]
         , enemies :: [Enemy]
         } deriving Show
@@ -325,33 +407,49 @@ createWorld space collisionQueue = do
     -- Ground
     _ <- createGround space 
     
+    -- Log
+
+    logObj <- createLog space (logX, logY)
+
     -- Blocks
     blocks <- traverse (createBlock space) blockDescriptions
     
+
     -- Ball 
     -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
     enemy <- createEnemy space ballRadius (Vect 300 400) (Vect 0 0)
 
     _ <- createCallBacks space collisionQueue
 
+
+    -- logImg <- lambda <- loadBMP "imgs/lambda.bmp" 
+
     -- World
-    pure $ World space blocks initBall [] [enemy]
+    pure $ World space blocks initBall logObj [] [enemy]
 
 type Ground = Shape
 
-createGround :: Space -> IO Ground
+createGround :: Space -> IO ()
 createGround space = do
   spaceBody <- get $ spaceStaticBody space
-  ground <- segmentShapeNew spaceBody groundA groundB 0
+  leftGround <- segmentShapeNew spaceBody leftGroundA leftGroundB 0
 
-  shapeFriction ground $= groundFriction
-  shapeElasticity ground $= 0.9
-  groundCollisionType <- get $ shapeCollisionType ground
+  shapeFriction leftGround $= groundFriction
+  shapeElasticity leftGround $= 0.9
+  groundCollisionType <- get $ shapeCollisionType leftGround
 
-  spaceAddShape space ground
-  shapeCollisionType' ground $= GroundCT
+  spaceAddShape space leftGround
+  shapeCollisionType' leftGround $= GroundCT
 
-  pure ground
+  rightGround <- segmentShapeNew spaceBody rightGroundA rightGroundB 0
+  shapeFriction rightGround $= groundFriction
+  shapeElasticity rightGround $= 0.9
+  groundCollisionType <- get $ shapeCollisionType rightGround
+
+  spaceAddShape space rightGround
+  shapeCollisionType' rightGround $= GroundCT
+
+  pure ()
 
 type Gravity = Vect
 
@@ -364,17 +462,17 @@ createSpace gravity = do
 blockDescriptions :: [BlockDescription]
 blockDescriptions =
    [ BlockDescription
-      { bdescPosition = Vect 250 125
+      { bdescPosition = Vect 250 (-25)
       , bdescDimensions = Vect 25 250
       , bdescAngle = 0
       }
     , BlockDescription
-        { bdescPosition = Vect 350 125
+        { bdescPosition = Vect 350 (-25)
         , bdescDimensions = Vect 25 250
         , bdescAngle = 0
         }
     , BlockDescription
-      { bdescPosition = Vect 300 275
+      { bdescPosition = Vect 300 (70)
       , bdescDimensions = Vect 25 250
       , bdescAngle = 3.1415/2
       }
