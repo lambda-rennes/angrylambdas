@@ -16,6 +16,7 @@ import Control.Concurrent.STM (STM)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TQueue (TQueue)
 import qualified Control.Concurrent.STM.TQueue as TQueue
+import System.Exit
 
 
 data CollisionType'
@@ -202,6 +203,8 @@ handleEvent (EventMotion mousePos@(mX, mY)) world@World{slingshot = (ball@Slings
 
       pure world{slingshot = ball{slingshotPosition = newPos}}
 
+
+handleEvent (EventKey (Char 'q') Down _ _) _ = exitSuccess
 
 handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
             world@World{space, slingshot = (ball@Slingshot{slingshotPosition = sPos@(sX, sY), slingshotGrabbed = Grabbed }), thrownBalls} = do
