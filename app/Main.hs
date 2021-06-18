@@ -19,6 +19,13 @@ import qualified Control.Concurrent.STM.TQueue as TQueue
 import System.Exit
 
 
+data Assets = Assets
+  { landscape :: Picture
+  , wood :: Picture
+  , log :: Picture
+  , lambdaBall :: Picture
+  }
+
 data CollisionType'
   = DefaultCT
   | GroundCT
@@ -173,9 +180,8 @@ renderBlock block = do
     -- polygon $
     -- rectanglePath (double2Float width) (double2Float height)
 
-renderWood :: Block -> IO Picture
-renderWood block = do
-  wood <- loadBMP "imgs/882.bmp"
+renderWood :: Picture -> Block -> IO Picture
+renderWood wood block = do
   bodyPos <- get $ block & blockBody & bodyPosition
   bodyAngle <- get $ block & blockBody & bodyAngle
   pure $
@@ -190,10 +196,16 @@ main = do
   let gravity = Vect 0 (-500)
   space <- createSpace gravity
 
-  collisionQueue <- STM.atomically TQueue.newTQueue
-  world <- createWorld space collisionQueue
 
-  playIO window black 60 world render handleEvent (advanceSim space collisionQueue advanceWorld)
+  wood <- loadBMP "imgs/882.bmp"
+  landscape <- loadBMP "imgs/landscape3.bmp"
+  log <- loadBMP "imgs/pitoune.bmp"
+  lambdaBall <- scale 0.69 0.69 <$> loadBMP "imgs/lambda.bmp"
+
+  collisionQueue <- STM.atomically TQueue.newTQueue
+  world <- createWorld space log collisionQueue
+
+  playIO window black 60 world (render Assets {..}) handleEvent (advanceSim space collisionQueue advanceWorld)
 
 
 maxGrabDist = 300.0
@@ -280,16 +292,15 @@ advanceSim space collisionQueue advance tic world = do
   spaceStep space (1 / 60)
   pure $ advance tic world'
 
+-- renderBody :: Picture -> Body -> IO Picture
 
-
-render :: World -> IO Picture
-render World{blocks, slingshot, log', thrownBalls, enemies} = do
-  landscape <- loadBMP "imgs/landscape3.bmp"
+render :: Assets -> World -> IO Picture
+render assets@Assets{..} World{blocks, slingshot, log', thrownBalls, enemies} = do
 
   let getPosAngle body = (,) <$> get (bodyPosition body) <*> get (bodyAngle body)
   ballPosAngles <- traverse getPosAngle thrownBalls
-  ballPictures <- flip traverse ballPosAngles $ \(Vect x y, angle) ->
-    translate (double2Float x) (double2Float y) . rotate (- (double2Float $ rad2deg angle)) <$> renderLambda (0, 0)
+  let ballPictures = flip fmap ballPosAngles $ \(Vect x y, angle) ->
+        translate (double2Float x) (double2Float y) $ rotate (- (double2Float $ rad2deg angle)) lambdaBall
 
 
   enemyPosAngles <- traverse getPosAngle enemies
@@ -297,10 +308,9 @@ render World{blocks, slingshot, log', thrownBalls, enemies} = do
         color yellow .
         translate (double2Float x) (double2Float y) $ circleSolid ballRadius
 
-  blockPictures <- traverse renderWood blocks
-  lambda <- renderLambda (-400.0, -200.0)
+  blockPictures <- traverse (renderWood wood) blocks
 
-  slingshot <- renderSlingshot slingshot
+  slingshot <- renderSlingshot assets slingshot
   pure $ mconcat $ [landscape] <>
     [groundPicture] <> [renderLog log'] <>
     ballPictures <>
@@ -339,11 +349,10 @@ renderSlingString (x1, y1) (x2, y2)= color blue $ Line [(x1, y1), (x2, y2)]
 renderSlingBall :: Radius -> Pos -> Picture
 renderSlingBall radius (x, y) = translate x y $ color yellow $ circleSolid radius
 
-renderSlingshot :: Slingshot -> IO Picture
-renderSlingshot (Slingshot radius pos _) = do 
-  lambdaBall <- renderLambda pos 
+renderSlingshot :: Assets -> Slingshot -> IO Picture
+renderSlingshot Assets {lambdaBall} (Slingshot radius pos@(x,y) _) = do
   pure $ pictures [ renderSlingString initSlingshotPos pos
-                  , lambdaBall
+                  , translate x y lambdaBall
                   ]
 
 
@@ -360,9 +369,8 @@ logY = -145
 renderLog :: Log -> Picture
 renderLog log = logPicture log 
 
-createLog :: Space -> Pos -> IO Log
-createLog space pos = do
-  logImg <- loadBMP "imgs/pitoune.bmp"
+createLog :: Space -> Picture -> Pos -> IO Log
+createLog space logImg pos = do
 
   logBody <- bodyNew logMass logMoment
   spaceAddBody space logBody
@@ -387,10 +395,10 @@ createLog space pos = do
     logDimension = Vect 700 200
 
 
-renderLambda :: Pos -> IO Picture
-renderLambda (x, y) = do
-  lambda <- loadBMP "imgs/lambda.bmp"
-  pure $ translate x y $ scale 0.69 0.69 $ lambda
+-- renderLambda :: Pos -> IO Picture
+-- renderLambda (x, y) = do
+--   lambda <- loadBMP "imgs/lambda.bmp"
+--   pure $ translate x y $ scale 0.69 0.69 $ lambda
 
 data World =
   World { space :: Space
@@ -401,15 +409,15 @@ data World =
         , enemies :: [Enemy]
         } deriving Show
 
-createWorld :: Space -> TQueue EnemyCollision -> IO World
-createWorld space collisionQueue = do
+createWorld :: Space -> Picture -> TQueue EnemyCollision -> IO World
+createWorld space logImg collisionQueue = do
 
     -- Ground
     _ <- createGround space 
     
     -- Log
 
-    logObj <- createLog space (logX, logY)
+    logObj <- createLog space logImg (logX, logY)
 
     -- Blocks
     blocks <- traverse (createBlock space) blockDescriptions
