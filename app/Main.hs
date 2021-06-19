@@ -27,7 +27,7 @@ import Utils
 import World
 
 gameLoop ::
-  Space -> 
+  Space ->
   World ->
   TQueue Collision ->
   (World -> IO Picture) ->
@@ -35,15 +35,13 @@ gameLoop ::
   (Collision -> World -> IO World) ->
   (Float -> World -> IO World) ->
   IO ()
-gameLoop space initialWorld collisionQueue render processEvent processCollision advance = 
+gameLoop space initialWorld collisionQueue render processEvent processCollision advance =
   playIO window black 60 initialWorld render processEvent advance'
-    where advance' _ world = do
-              spaceStep space (1 / 60)
-              collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
-              foldM (flip processCollision) world collisions
-
-
-  
+  where
+    advance' _ world = do
+      spaceStep space (1 / 60)
+      collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
+      foldM (flip processCollision) world collisions
 
 main :: IO ()
 main = do
@@ -61,33 +59,43 @@ window = FullScreen
 
 -- window = InWindow "Abstract them all" (2000, 1000) (500, 500)
 
+clipSlingshotPosition :: Slingshot -> Pos -> Pos
+clipSlingshotPosition Slingshot {slingshotCenter, slingshotRadius} mousePos@(mX, mY) =
+  let -- Final ball distance from its initial position after grab
+      ballDist = min distFromInitPos slingshotRadius
+      -- Distance between mouse cursor and initial position
+      distFromInitPos = distance slingshotCenter mousePos
+      -- Unit vector between ball
+      v@(vX, vY) = ((mX - iX) / distFromInitPos, (mY - iY) / distFromInitPos)
+      (iX, iY) = slingshotCenter
+   in (iX + ballDist * vX, iY + ballDist * vY)
 
 handleEvent :: Assets -> Event -> World -> IO World
-handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = ball@Slingshot {slingshotGrabbed = Grabbed}} =
+handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = slingshot@Slingshot {slingshotCenter, slingshotState = Grabbed _}} =
   do
     let -- Final ball distance from its initial position after grab
         ballDist = min distFromInitPos maxGrabDist
         -- Distance between mouse cursor and initial position
-        distFromInitPos = distance ballInitPos mousePos
+        distFromInitPos = distance slingshotCenter mousePos
         -- Unit vector between ball
         v@(vX, vY) = ((mX - iX) / distFromInitPos, (mY - iY) / distFromInitPos)
         -- New Position
         newPos = (iX + ballDist * vX, iY + ballDist * vY)
-        (iX, iY) = ballInitPos
+        (iX, iY) = slingshotCenter
 
-    pure world {slingshot = ball {slingshotPosition = newPos}}
+    pure world {slingshot = slingshot {slingshotState = Grabbed newPos}}
 handleEvent _ (EventKey (Char 'q') Down _ _) _ = exitSuccess
 handleEvent
   Assets {..}
   (EventKey (MouseButton LeftButton) Up _ _)
   world@World
     { space,
-      slingshot = ball@Slingshot {slingshotPosition = sPos@(sX, sY), slingshotGrabbed = Grabbed},
+      slingshot = slingshot@Slingshot {slingshotCenter, slingshotState = Grabbed sPos@(sX, sY)},
       thrownBalls
     } = do
-    let d = distance ballInitPos sPos
+    let d = distance slingshotCenter sPos
         initVelocityNorm = maxInitVelocity * d / maxGrabDist
-        (bX, bY) = ballInitPos
+        (bX, bY) = slingshotCenter
         v =
           ( initVelocityNorm * (bX - sX) / d,
             initVelocityNorm * (bY - sY) / d
@@ -103,7 +111,7 @@ handleEvent
     newBall <- createBall space lambdaBall discInfo (sX, sY) v
     pure $
       world
-        { slingshot = initBall,
+        { slingshot = slingshot {slingshotState = Free},
           thrownBalls = newBall : thrownBalls
         }
 handleEvent
@@ -111,14 +119,14 @@ handleEvent
   (EventKey (MouseButton LeftButton) Down _ mousePos)
   world@World
     { slingshot =
-        ball@Slingshot
-          { slingshotRadius,
-            slingshotPosition,
-            slingshotGrabbed = Free
+        slingshot@Slingshot
+          { slingshotState = Free
+          , slingshotBallRadius
+          , slingshotCenter
           }
     }
-    | grabCircle slingshotRadius slingshotPosition mousePos = do
-      let world' = world {slingshot = ball {slingshotGrabbed = Grabbed}}
+    | grabCircle slingshotBallRadius slingshotCenter mousePos = do
+      let world' = world {slingshot = slingshot {slingshotState = Grabbed (clipSlingshotPosition slingshot mousePos)}}
       -- print $ show $ world'
       pure world'
 handleEvent _ _ world = pure world
