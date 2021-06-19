@@ -3,28 +3,43 @@
 
 module Main where
 
+import Chiphunk.Low
+import Control.Concurrent.STM (STM)
+import qualified Control.Concurrent.STM as STM
+import Control.Concurrent.STM.TQueue (TQueue)
+import qualified Control.Concurrent.STM.TQueue as TQueue
 import Control.Monad (foldM)
 import Data.Function ((&))
 import Data.StateVar (StateVar, mapStateVar)
 import Foreign.Ptr (nullPtr)
 import GHC.Float
 import Graphics.Gloss
-import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Data.ViewPort
-import Chiphunk.Low
-import Control.Concurrent.STM (STM)
-import qualified Control.Concurrent.STM as STM
-import Control.Concurrent.STM.TQueue (TQueue)
-import qualified Control.Concurrent.STM.TQueue as TQueue
+import Graphics.Gloss.Interface.IO.Game
 import System.Exit
 
+import Rendering
+import World
+import Utils
 
-data Assets = Assets
-  { landscape :: Picture
-  , wood :: Picture
-  , log :: Picture
-  , lambdaBall :: Picture
-  }
+import Assets (Assets(..))
+import qualified Assets
+import Constants
+
+
+main :: IO ()
+main = do
+  -- Space
+  let gravity = Vect 0 (-500)
+  space <- createSpace gravity
+  collisionQueue <- STM.atomically TQueue.newTQueue
+  assets <- Assets.load
+
+  world <- createWorld space (assets & woodenLog) collisionQueue
+
+
+  playIO window black 60 world (render assets) handleEvent (advanceSim space collisionQueue advanceWorld)
+
 
 data CollisionType'
   = DefaultCT
@@ -35,8 +50,8 @@ data CollisionType'
   deriving (Eq, Enum, Show)
 
 data EnemyCollision = EnemyCollision
-  { enemyCollisionBody :: Enemy
-  , enemyCollisionTotalImpulse :: Vect
+  { enemyCollisionBody :: Enemy,
+    enemyCollisionTotalImpulse :: Vect
   }
 
 shapeCollisionType' :: Shape -> StateVar CollisionType'
@@ -44,48 +59,33 @@ shapeCollisionType' =
   mapStateVar
     (toEnum . fromEnum)
     (toEnum . fromEnum)
-  . shapeCollisionType
+    . shapeCollisionType
 
 spaceAddCollisionHandler' :: Space -> CollisionType' -> CollisionType' -> IO CollisionHandlerPtr
-spaceAddCollisionHandler' space ct1 ct2 = spaceAddCollisionHandler space
-  (toEnum $ fromEnum ct1)
-  (toEnum $ fromEnum ct2)
+spaceAddCollisionHandler' space ct1 ct2 =
+  spaceAddCollisionHandler
+    space
+    (toEnum $ fromEnum ct1)
+    (toEnum $ fromEnum ct2)
 
 spaceAddWildcardHandler' :: Space -> CollisionType' -> IO CollisionHandlerPtr
-spaceAddWildcardHandler' space ct1 = spaceAddWildcardHandler space
-  (toEnum $ fromEnum ct1)
+spaceAddWildcardHandler' space ct1 =
+  spaceAddWildcardHandler
+    space
+    (toEnum $ fromEnum ct1)
 
 window :: Display
-window = InWindow "Abstract them all" (2000,1000) (500,500)
-
-groundAX, groundAY, groundBX, groundBY :: Floating a => a
-groundAX = -2500
-groundAY = -250
-groundBX = 2500
-groundBY = -250
+window = FullScreen 
+-- window = InWindow "Abstract them all" (2000, 1000) (500, 500)
 
 
-
--- Vertices of the ground
-(groundA, groundB) =
-  ( Vect groundAX groundAY
-  , Vect groundBX groundBY )
-
-groundFriction = 1
-
-
-
-initialBallPosition = Vect 0 250
-ballRadius :: Floating a => a
-ballRadius = 50
-ballMass = 1
-ballFriction = 0.7
+ballInitPos :: Pos
+ballInitPos = initSlingshotPos
 
 collisionCallback :: CollisionCallback Bool
 collisionCallback arbiter space _ = do
   putStrLn "COLLISION !"
   pure True
-
 
 enemyCollisionCallback :: TQueue EnemyCollision -> CollisionCallback ()
 enemyCollisionCallback collisionQueue arbiter space _ = do
@@ -93,41 +93,19 @@ enemyCollisionCallback collisionQueue arbiter space _ = do
   enemyCollisionTotalImpulse <- get $ arbiterTotalImpulse arbiter
   STM.atomically $ TQueue.writeTQueue collisionQueue $ EnemyCollision {..}
 
+data BlockDescription = BlockDescription
+  { bdescPosition :: Vect,
+    bdescDimensions :: Vect,
+    bdescAngle :: Double
+  }
 
 
-data BlockDescription =
-  BlockDescription
-    { bdescPosition :: Vect
-    , bdescDimensions :: Vect
-    , bdescAngle :: Double
-    }
 
-data Block =
-  Block
-   { blockDimensions :: Vect
-   , blockBody :: Body
-   } deriving Show
 
-instance Show Body where
-  show _ = "Body..."
 
-instance Show Space where
-  show _ = "Space.."
 
-type Pos = (Float, Float)
 
-data Grabbed = Grabbed | Free deriving Show
-
-data Slingshot = 
-  Slingshot 
-   { slingshotRadius :: Float
-   , slingshotPosition :: Pos
-   , slingshotGrabbed :: Grabbed
-   } deriving Show
-
-initSlingshotPos = (-350, 200)
-
-initBall :: Slingshot 
+initBall :: Slingshot
 initBall = Slingshot ballRadius initSlingshotPos Free
 
 -- data Object a =
@@ -136,147 +114,114 @@ initBall = Slingshot ballRadius initSlingshotPos Free
 --     ,  :: Body
 --     }
 
-
 createBlock :: Space -> BlockDescription -> IO Block
 createBlock space bdesc = do
-    blockBody <- bodyNew blockMass blockMoment
-    spaceAddBody space blockBody
-    let Vect width height = bdescDimensions bdesc
-    blockShape <- boxShapeNew blockBody width height 0
-    spaceAddShape space blockShape
+  blockBody <- bodyNew blockMass blockMoment
+  spaceAddBody space blockBody
+  let Vect width height = bdescDimensions bdesc
+  blockShape <- boxShapeNew blockBody width height 0
+  spaceAddShape space blockShape
 
-    shapeFriction blockShape $= 0.5
-    shapeElasticity blockShape $= 0.8
+  shapeFriction blockShape $= 0.5
+  shapeElasticity blockShape $= 0.8
 
-    bodyPosition blockBody $= bdescPosition bdesc
-    bodyAngle blockBody $= bdescAngle bdesc
-    pure $ Block
-      { blockBody = blockBody
-      , blockDimensions = bdescDimensions bdesc
+  bodyPosition blockBody $= bdescPosition bdesc
+  bodyAngle blockBody $= bdescAngle bdesc
+  pure $
+    Block
+      { blockBody = blockBody,
+        blockDimensions = bdescDimensions bdesc
       }
   where
     blockMass = 0.5
-    blockMoment = momentForBox blockMass
-      (bdesc & bdescDimensions & vX)
-      (bdesc & bdescDimensions & vY)
+    blockMoment =
+      momentForBox
+        blockMass
+        (bdesc & bdescDimensions & vX)
+        (bdesc & bdescDimensions & vY)
     blockRadius = 2
 
-rad2deg x = x*180 / 3.1415
 
 
 
-renderBlock :: Block -> IO Picture
-renderBlock block = do
-  let Vect width height = block & blockDimensions
-  bodyPos <- get $ block & blockBody & bodyPosition
-  bodyAngle <- get $ block & blockBody & bodyAngle
-  -- pure $
-  --   translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $ color red $ circleSolid 5
 
-  pure $
-    translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $
-    rotate (- (rad2deg $ double2Float bodyAngle)) $
-    rectangleSolid (double2Float width) (double2Float height)
-    -- polygon $
-    -- rectanglePath (double2Float width) (double2Float height)
-
-renderWood :: Picture -> Block -> IO Picture
-renderWood wood block = do
-  bodyPos <- get $ block & blockBody & bodyPosition
-  bodyAngle <- get $ block & blockBody & bodyAngle
-  pure $
-    translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $
-    rotate (- (rad2deg $ double2Float bodyAngle)) $
-    wood
-
-main :: IO ()
-main = do
-
-  -- Space
-  let gravity = Vect 0 (-500)
-  space <- createSpace gravity
+-- polygon $
+-- rectanglePath (double2Float width) (double2Float height)
 
 
-  wood <- loadBMP "imgs/882.bmp"
-  landscape <- loadBMP "imgs/landscape3.bmp"
-  log <- loadBMP "imgs/pitoune.bmp"
-  lambdaBall <- scale 0.69 0.69 <$> loadBMP "imgs/lambda.bmp"
-
-  collisionQueue <- STM.atomically TQueue.newTQueue
-  world <- createWorld space log collisionQueue
-
-  playIO window black 60 world (render Assets {..}) handleEvent (advanceSim space collisionQueue advanceWorld)
 
 
-maxGrabDist = 300.0
-
-ballInitPos :: Pos
-ballInitPos = initSlingshotPos
-
-maxInitVelocity :: Floating a => a
-maxInitVelocity = 2500
 
 handleEvent :: Event -> World -> IO World
-handleEvent (EventMotion mousePos@(mX, mY)) world@World{slingshot = (ball@Slingshot{slingshotGrabbed = Grabbed }) } 
-  = do
-      let -- Final ball distance from its initial position after grab
-          ballDist = min distFromInitPos maxGrabDist
-          -- Distance between mouse cursor and initial position
-          distFromInitPos = distance ballInitPos mousePos
-          -- Unit vector between ball
-          v@(vX, vY) = ((mX-iX)/distFromInitPos, (mY-iY)/distFromInitPos)
-          -- New Position
-          newPos = (iX + ballDist * vX, iY + ballDist * vY)
-          (iX, iY) = ballInitPos
+handleEvent (EventMotion mousePos@(mX, mY)) world@World {slingshot = (ball@Slingshot {slingshotGrabbed = Grabbed})} =
+  do
+    let -- Final ball distance from its initial position after grab
+        ballDist = min distFromInitPos maxGrabDist
+        -- Distance between mouse cursor and initial position
+        distFromInitPos = distance ballInitPos mousePos
+        -- Unit vector between ball
+        v@(vX, vY) = ((mX - iX) / distFromInitPos, (mY - iY) / distFromInitPos)
+        -- New Position
+        newPos = (iX + ballDist * vX, iY + ballDist * vY)
+        (iX, iY) = ballInitPos
 
-      pure world{slingshot = ball{slingshotPosition = newPos}}
-
-
+    pure world {slingshot = ball {slingshotPosition = newPos}}
 handleEvent (EventKey (Char 'q') Down _ _) _ = exitSuccess
+handleEvent
+  (EventKey (MouseButton LeftButton) Up _ _)
+  world@World {space, slingshot = (ball@Slingshot {slingshotPosition = sPos@(sX, sY), slingshotGrabbed = Grabbed}), thrownBalls} = do
+    let d = distance ballInitPos sPos
+        initVelocityNorm = maxInitVelocity * d / maxGrabDist
+        (bX, bY) = ballInitPos
+        v =
+          Vect
+            (float2Double $ initVelocityNorm * (bX - sX) / d)
+            (float2Double $ initVelocityNorm * (bY - sY) / d)
 
-handleEvent (EventKey (MouseButton LeftButton) Up _ _) 
-            world@World{space, slingshot = (ball@Slingshot{slingshotPosition = sPos@(sX, sY), slingshotGrabbed = Grabbed }), thrownBalls} = do
-              let d = distance ballInitPos sPos
-                  initVelocityNorm = maxInitVelocity * d / maxGrabDist
-                  (bX, bY) = ballInitPos
-                  v = Vect
-                    (float2Double $ initVelocityNorm * (bX-sX) / d)
-                    (float2Double $ initVelocityNorm * (bY-sY) / d)
-
-
-              newBall <- createBall space ballRadius (Vect (float2Double sX) (float2Double sY)) v
-              pure $
-                world
-                  { slingshot = initBall
-                  , thrownBalls = newBall : thrownBalls
-                  } 
-
-handleEvent (EventKey (MouseButton LeftButton) Down _ mousePos)
-            world@World{slingshot = (ball@Slingshot{slingshotRadius, slingshotPosition, slingshotGrabbed = Free}) } 
-            | grabCircle slingshotRadius slingshotPosition mousePos == True = do 
-              let world' = world{slingshot = ball{slingshotGrabbed = Grabbed}}
-              -- print $ show $ world'
-              pure world'
+    newBall <- createBall space ballRadius (Vect (float2Double sX) (float2Double sY)) v
+    pure $
+      world
+        { slingshot = initBall,
+          thrownBalls = newBall : thrownBalls
+        }
+handleEvent
+  (EventKey (MouseButton LeftButton) Down _ mousePos)
+  world@World
+    { slingshot =
+        ( ball@Slingshot
+            { slingshotRadius,
+              slingshotPosition,
+              slingshotGrabbed = Free
+            }
+          )
+    }
+    | grabCircle slingshotRadius slingshotPosition mousePos == True = do
+      let world' = world {slingshot = ball {slingshotGrabbed = Grabbed}}
+      -- print $ show $ world'
+      pure world'
 handleEvent _ world = pure world
 
-type Radius = Float
+
 
 grabCircle :: Radius -> Pos -> Pos -> Bool
-grabCircle radius circlePos clickPos = radius >= distance circlePos clickPos   
+grabCircle radius circlePos clickPos = radius >= distance circlePos clickPos
 
 distance :: Pos -> Pos -> Float
-distance (x1, y1) (x2, y2) = sqrt $ ( (x2 - x1) ** 2 ) + ( (y2 - y1) ** 2)  
+distance (x1, y1) (x2, y2) = sqrt $ ((x2 - x1) ** 2) + ((y2 - y1) ** 2)
 
 advanceWorld :: Float -> World -> World
 advanceWorld _ world = world
 
-advanceSim :: Space
-           -> TQueue EnemyCollision
-           -> (Float -> World -> World) 
-           -> Float -> World -> IO World
+advanceSim ::
+  Space ->
+  TQueue EnemyCollision ->
+  (Float -> World -> World) ->
+  Float ->
+  World ->
+  IO World
 advanceSim space collisionQueue advance tic world = do
   collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
-  let handleCollision world EnemyCollision{enemyCollisionBody, enemyCollisionTotalImpulse} = do
+  let handleCollision world EnemyCollision {enemyCollisionBody, enemyCollisionTotalImpulse} = do
         let impulse = (vX enemyCollisionTotalImpulse) ** 2 + (vY enemyCollisionTotalImpulse) ** 2
         case impulse > 100000 of
           True -> do
@@ -284,7 +229,7 @@ advanceSim space collisionQueue advance tic world = do
                   spaceRemoveShape space shape
             bodyEachShape enemyCollisionBody iterFunc nullPtr
             spaceRemoveBody space enemyCollisionBody
-            pure $ world { enemies = filter (/= enemyCollisionBody) (enemies world) }
+            pure $ world {enemies = filter (/= enemyCollisionBody) (enemies world)}
           False ->
             pure world
 
@@ -294,84 +239,28 @@ advanceSim space collisionQueue advance tic world = do
 
 -- renderBody :: Picture -> Body -> IO Picture
 
-render :: Assets -> World -> IO Picture
-render assets@Assets{..} World{blocks, slingshot, log', thrownBalls, enemies} = do
-
-  let getPosAngle body = (,) <$> get (bodyPosition body) <*> get (bodyAngle body)
-  ballPosAngles <- traverse getPosAngle thrownBalls
-  let ballPictures = flip fmap ballPosAngles $ \(Vect x y, angle) ->
-        translate (double2Float x) (double2Float y) $ rotate (- (double2Float $ rad2deg angle)) lambdaBall
 
 
-  enemyPosAngles <- traverse getPosAngle enemies
-  let enemyPictures = flip fmap enemyPosAngles $ \(Vect x y, angle) ->
-        color yellow .
-        translate (double2Float x) (double2Float y) $ circleSolid ballRadius
 
-  blockPictures <- traverse (renderWood wood) blocks
-
-  slingshot <- renderSlingshot assets slingshot
-  pure $ mconcat $ [landscape] <>
-    [groundPicture] <> [renderLog log'] <>
-    ballPictures <>
-    enemyPictures <>
-    blockPictures <> [slingshot]
-
-leftBankAX, leftBankAY, leftBankBX, leftBankBY :: Floating a => a 
-leftBankAX = -1000
-leftBankAY = -220
-leftBankBX = -310
-leftBankBY = -175
-
-(leftGroundA, leftGroundB) = 
-  ( Vect leftBankAX leftBankAY
-  , Vect leftBankBX leftBankBY ) 
-
-rightBankAX, rightBankAY, rightBankBX, rightBankBY :: Floating a => a 
-rightBankAX = 225
-rightBankAY = -150
-rightBankBX = 1000
-rightBankBY = -100
-
-(rightGroundA, rightGroundB) = 
-  ( Vect rightBankAX rightBankAY
-  , Vect rightBankBX rightBankBY ) 
-
-groundPicture :: Picture
-groundPicture = 
-  pictures [ color yellow $ line [(leftBankAX, leftBankAY), (leftBankBX, leftBankBY)]
-           , color orange $ line [(rightBankAX, rightBankAY), (rightBankBX, rightBankBY)]
-           ]
-
-renderSlingString :: Pos -> Pos -> Picture
-renderSlingString (x1, y1) (x2, y2)= color blue $ Line [(x1, y1), (x2, y2)]
-
-renderSlingBall :: Radius -> Pos -> Picture
-renderSlingBall radius (x, y) = translate x y $ color yellow $ circleSolid radius
-
-renderSlingshot :: Assets -> Slingshot -> IO Picture
-renderSlingshot Assets {lambdaBall} (Slingshot radius pos@(x,y) _) = do
-  pure $ pictures [ renderSlingString initSlingshotPos pos
-                  , translate x y lambdaBall
-                  ]
+(leftGroundA, leftGroundB) =
+  ( Vect leftBankAX leftBankAY,
+    Vect leftBankBX leftBankBY
+  )
 
 
-data Log = 
-  Log  { logPicture :: Picture
-        , logBody :: Body
-        , logDimension :: Vect
-        } deriving Show
 
-logX, logY :: Floating a => a 
+(rightGroundA, rightGroundB) =
+  ( Vect rightBankAX rightBankAY,
+    Vect rightBankBX rightBankBY
+  )
+
+logX, logY :: Floating a => a
 logX = 0
 logY = -145
 
-renderLog :: Log -> Picture
-renderLog log = logPicture log 
 
 createLog :: Space -> Picture -> Pos -> IO Log
 createLog space logImg pos = do
-
   logBody <- bodyNew logMass logMoment
   spaceAddBody space logBody
   let Vect width height = logDimension
@@ -385,55 +274,45 @@ createLog space logImg pos = do
   bodyAngle logBody $= 0
 
   pure $ Log logImg logBody logDimension
-
   where
     logMass = 0.5
-    logMoment = momentForBox logMass
-      (logDimension & vX)
-      (logDimension & vY)
+    logMoment =
+      momentForBox
+        logMass
+        (logDimension & vX)
+        (logDimension & vY)
     logRadius = 2
     logDimension = Vect 700 200
-
 
 -- renderLambda :: Pos -> IO Picture
 -- renderLambda (x, y) = do
 --   lambda <- loadBMP "imgs/lambda.bmp"
 --   pure $ translate x y $ scale 0.69 0.69 $ lambda
 
-data World =
-  World { space :: Space
-        , blocks :: [Block]
-        , slingshot :: Slingshot
-        , log' :: Log
-        , thrownBalls :: [Ball]
-        , enemies :: [Enemy]
-        } deriving Show
+
 
 createWorld :: Space -> Picture -> TQueue EnemyCollision -> IO World
 createWorld space logImg collisionQueue = do
+  -- Ground
+  _ <- createGround space
 
-    -- Ground
-    _ <- createGround space 
-    
-    -- Log
+  -- Log
 
-    logObj <- createLog space logImg (logX, logY)
+  logObj <- createLog space logImg (logX, logY)
 
-    -- Blocks
-    blocks <- traverse (createBlock space) blockDescriptions
-    
+  -- Blocks
+  blocks <- traverse (createBlock space) blockDescriptions
 
-    -- Ball 
-    -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
-    enemy <- createEnemy space ballRadius (Vect 300 400) (Vect 0 0)
+  -- Ball
+  -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
+  enemy <- createEnemy space ballRadius (Vect 300 400) (Vect 0 0)
 
-    _ <- createCallBacks space collisionQueue
+  _ <- createCallBacks space collisionQueue
 
+  -- logImg <- lambda <- loadBMP "imgs/lambda.bmp"
 
-    -- logImg <- lambda <- loadBMP "imgs/lambda.bmp" 
-
-    -- World
-    pure $ World space blocks initBall logObj [] [enemy]
+  -- World
+  pure $ World space blocks initBall logObj [] [enemy]
 
 type Ground = Shape
 
@@ -461,38 +340,34 @@ createGround space = do
 
 type Gravity = Vect
 
-createSpace :: Gravity -> IO Space 
-createSpace gravity = do 
+createSpace :: Gravity -> IO Space
+createSpace gravity = do
   space <- spaceNew
   spaceGravity space $= gravity
   pure space
 
 blockDescriptions :: [BlockDescription]
 blockDescriptions =
-   [ BlockDescription
-      { bdescPosition = Vect 250 (-25)
-      , bdescDimensions = Vect 25 250
-      , bdescAngle = 0
+  [ BlockDescription
+      { bdescPosition = Vect 250 (-25),
+        bdescDimensions = Vect 25 250,
+        bdescAngle = 0
+      },
+    BlockDescription
+      { bdescPosition = Vect 350 (-25),
+        bdescDimensions = Vect 25 250,
+        bdescAngle = 0
+      },
+    BlockDescription
+      { bdescPosition = Vect 300 (70),
+        bdescDimensions = Vect 25 250,
+        bdescAngle = 3.1415 / 2
       }
-    , BlockDescription
-        { bdescPosition = Vect 350 (-25)
-        , bdescDimensions = Vect 25 250
-        , bdescAngle = 0
-        }
-    , BlockDescription
-      { bdescPosition = Vect 300 (70)
-      , bdescDimensions = Vect 25 250
-      , bdescAngle = 3.1415/2
-      }
-    ]
+  ]
 
-type Ball = Body
-type Enemy = Body
 
-vect2Pos :: Vect -> Pos
-vect2Pos (Vect x y) = (double2Float x, double2Float y)
-pos2Vect :: Pos -> Vect
-pos2Vect (x, y) = Vect (float2Double x) (float2Double y)
+
+
 
 createBall :: Space -> Double -> Vect -> Vect -> IO Ball
 createBall space radius initPos initVelocity = do
@@ -509,7 +384,6 @@ createBall space radius initPos initVelocity = do
   shapeElasticity ballShape $= 0.9
 
   shapeCollisionType' ballShape $= BallCT
-  
 
   spaceAddShape space ballShape
 
@@ -539,6 +413,6 @@ createCallBacks :: Space -> TQueue EnemyCollision -> IO ()
 createCallBacks space collisionQueue = do
   callback <- mkCallback (enemyCollisionCallback collisionQueue)
   colHandlerPtr <- spaceAddWildcardHandler' space EnemyCT
-  modifyCollisionHandler colHandlerPtr $ \colHandler -> pure $ colHandler { chPostSolveFunc = callback }
+  modifyCollisionHandler colHandlerPtr $ \colHandler -> pure $ colHandler {chPostSolveFunc = callback}
 
   pure ()

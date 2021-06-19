@@ -24,6 +24,8 @@ dependencies:
 - gloss
 - chiphunk
 - StateVar
+- stm
+- template-haskell
 
 library:
   source-dirs: src

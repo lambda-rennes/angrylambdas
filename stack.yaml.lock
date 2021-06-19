@@ -5,9 +5,6 @@
 
 packages:
 - completed:
-    cabal-file:
-      size: 5100
-      sha256: 37dd8efe835471f25cece2fc51512e0535cadfc4c19e0211530d0fe731ff466d
     name: chiphunk
     version: 0.1.4.0
     git: https://github.com/gdeest/Chiphunk.git
@@ -20,7 +17,7 @@ packages:
     commit: e85e6c80c9ef77e2000d716b39e041f1988adbf0
 snapshots:
 - completed:
-    size: 533913
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/16/30.yaml
-    sha256: 3ef84db274d6ec27f49fa611f0afdb347ff9e70cb7c861c93d11c6cdc33827f4
-  original: lts-16.30
+    size: 567679
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/17/15.yaml
+    sha256: 72e87841a0ab5b72f6f018e8ee692fd972b7bb32a944990f028e10d6eb528e63
+  original: lts-17.15

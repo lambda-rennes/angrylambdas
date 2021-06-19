@@ -14,6 +14,7 @@ stdenv.mkDerivation {
   buildInputs = [
     cabal-install
     libGL
+    libGL.dev
     libGLU
     glxinfo
     git
@@ -21,8 +22,7 @@ stdenv.mkDerivation {
     libffi.dev
     freeglut
     zlib
-    haskell.compiler.ghc884
-    haskellPackages.ghcid
+    haskell.compiler.ghc8104
     stack
   ];
   shellHook = with pkgs; ''
