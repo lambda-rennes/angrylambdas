@@ -251,7 +251,6 @@ createLog space logImg pos = do
         logMass
         (logDimension & vX)
         (logDimension & vY)
-    logRadius = 2
     logDimension = Vect 700 200
 
 -- renderLambda :: Pos -> IO Picture
