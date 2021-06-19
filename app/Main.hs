@@ -26,14 +26,31 @@ import System.Exit
 import Utils
 import World
 
+play ::
+  Space -> 
+  World ->
+  TQueue Collision ->
+  (World -> IO Picture) ->
+  (Event -> World -> IO World) ->
+  (Collision -> World -> IO World) ->
+  (Float -> World -> IO World) ->
+  IO ()
+play space initialWorld collisionQueue render processEvent processCollision advance = 
+  playIO window black 60 initialWorld render processEvent advance'
+    where advance' _ world = do
+              spaceStep space (1 / 60)
+              collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
+              foldM (flip processCollision) world collisions
+
+
+  
+
 main :: IO ()
 main = do
   -- Space
   let gravity = Vect 0 (-500)
   space <- createSpace gravity
-  -- collisionQueue <- STM.atomically TQueue.newTQueue
   assets <- Assets.load
-
   world <- createWorld assets space
   collisionQueue <- createCollisionQueue space
 
@@ -167,6 +184,4 @@ advanceSim space collisionQueue advance tic world = do
   world' <- foldM handleCollision world collisions
   spaceStep space (1 / 60)
   pure $ advance tic world'
-
--- renderBody :: Picture -> Body -> IO Picture
 
