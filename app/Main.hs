@@ -50,19 +50,19 @@ ballInitPos = initSlingshotPos
 initBall :: Slingshot
 initBall = Slingshot ballRadius initSlingshotPos Free
 
-createBlock' :: Space -> Picture -> BoxInfo Float -> Pos -> IO Block'
-createBlock' space blockImg boxInfo pos = do
+createBlock :: Space -> Picture -> BoxInfo Float -> Pos -> IO Block
+createBlock space blockImg boxInfo pos = do
   blockBody <- createBox space boxInfo pos
   pure $
-    Block'
+    Block
       { blockPicture = blockImg,
         blockBody = blockBody
       }
 
-createBall :: Space -> Picture -> DiscInfo Float -> Pos -> (Float, Float) -> IO Ball'
+createBall :: Space -> Picture -> DiscInfo Float -> Pos -> (Float, Float) -> IO Ball
 createBall space ballPicture discInfo pos velocity = do
   ballBody <- createDisc space discInfo pos velocity
-  pure $ Ball' {..}
+  pure $ Ball {..}
 
 handleEvent :: Assets -> Event -> World -> IO World
 handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = ball@Slingshot {slingshotGrabbed = Grabbed}} =
@@ -234,7 +234,7 @@ createWorld assets@Assets {woodenLog, wood} space = do
         ]
 
   blocks <- forM blocks $ \(box, pos, _) -> 
-    createBlock' space wood box pos
+    createBlock space wood box pos
 
   -- Ball
   -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
@@ -278,7 +278,7 @@ createSpace gravity = do
   spaceGravity space $= gravity
   pure space
 
-createEnemy :: Space -> Double -> Vect -> Vect -> IO Ball
+createEnemy :: Space -> Double -> Vect -> Vect -> IO Body
 createEnemy space radius initPos initVelocity = do
   let moment = momentForCircle ballMass 0 radius (Vect 0 0)
 
