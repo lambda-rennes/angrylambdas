@@ -8,7 +8,7 @@ import Control.Concurrent.STM (STM)
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent.STM.TQueue (TQueue)
 import qualified Control.Concurrent.STM.TQueue as TQueue
-import Control.Monad (foldM)
+import Control.Monad (foldM, forM)
 import Data.Function ((&))
 import Data.StateVar (StateVar, mapStateVar)
 import Foreign.Ptr (nullPtr)
@@ -79,42 +79,12 @@ data BlockDescription = BlockDescription
 initBall :: Slingshot
 initBall = Slingshot ballRadius initSlingshotPos Free
 
--- data Object a =
---   Object
---     { data :: a
---     ,  :: Body
---     }
-
-createBlock :: Space -> BlockDescription -> IO Block
-createBlock space bdesc = do
-  blockBody <- bodyNew blockMass blockMoment
-  spaceAddBody space blockBody
-  let Vect width height = bdescDimensions bdesc
-  blockShape <- boxShapeNew blockBody width height 0
-  spaceAddShape space blockShape
-
-  shapeFriction blockShape $= 0.5
-  shapeElasticity blockShape $= 0.8
-
-  bodyPosition blockBody $= bdescPosition bdesc
-  bodyAngle blockBody $= bdescAngle bdesc
-  pure $
-    Block
-      { blockBody = blockBody,
-        blockDimensions = bdescDimensions bdesc
-      }
-  where
-    blockMass = 0.5
-    blockMoment =
-      momentForBox
-        blockMass
-        (bdesc & bdescDimensions & vX)
-        (bdesc & bdescDimensions & vY)
-    blockRadius = 2
-
-
-
-
+createBlock' :: Space -> Picture -> BoxInfo Float -> Pos -> IO Block' 
+createBlock' space blockImg boxInfo pos = do
+  blockBody <- createBox space boxInfo pos
+  pure $ Block' { blockPicture = blockImg
+               , blockBody = blockBody 
+               }
 
 -- polygon $
 -- rectanglePath (double2Float width) (double2Float height)
@@ -230,26 +200,45 @@ logX = 0
 logY = -145
 
 
-
 createLog :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log
 createLog space pic boxInfo pos = do
   logBody <- createBox space boxInfo pos
-  pure $ Log' pic logBody
+  pure $ Log { logPicture = pic 
+             , logBody = logBody
+             }
 
 
 createWorld :: Assets -> Space -> IO World
-createWorld assets@Assets{woodenLog} space = do
+createWorld assets@Assets{woodenLog, wood} space = do
   -- Ground
   _ <- createGround space
 
   -- Log
+  let logInfo = BoxInfo { boxMass = 0.5 
+                        , boxSize = (700, 200)
+                        , boxFriction = 0.5 
+                        , boxElasticity = 0.8
+                        }
 
-  let logInfo = BoxInfo 0.5 (700, 200)
-  let logPos = 
-  logObj <- createLog space woodenLog  (0, -145)
+  let logPos = (0, -145)
+
+  logObj <- createLog space woodenLog logInfo logPos 
 
   -- Blocks
-  blocks <- traverse (createBlock space) blockDescriptions
+  let boxInfo = BoxInfo
+        { boxMass = 0.5
+        , boxFriction = 0.5
+        , boxElasticity = 0.8
+        , boxSize = (25,250)
+        }
+      blocks =
+        [ ( boxInfo,  (250, -25), 0 ),
+          ( boxInfo, (350, -25), 0 ),
+          ( boxInfo, (25, 250), 3.1415 / 2 )
+        ]
+
+  blocks <- forM blocks $ \(box, pos, _) -> do
+    createBlock' space wood box pos
 
   -- Ball
   -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
