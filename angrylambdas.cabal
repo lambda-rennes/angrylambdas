@@ -44,6 +44,7 @@ executable angrylambdas
   other-modules:
       Assets
       Constants
+      Physics
       Rendering
       Utils
       World

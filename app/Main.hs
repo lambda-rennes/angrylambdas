@@ -21,6 +21,7 @@ import System.Exit
 import Rendering
 import World
 import Utils
+import Physics
 
 import Assets (Assets(..))
 import qualified Assets
@@ -41,38 +42,7 @@ main = do
   playIO window black 60 world (render assets) handleEvent (advanceSim space collisionQueue advanceWorld)
 
 
-data CollisionType'
-  = DefaultCT
-  | GroundCT
-  | BlockCT
-  | BallCT
-  | EnemyCT
-  deriving (Eq, Enum, Show)
 
-data EnemyCollision = EnemyCollision
-  { enemyCollisionBody :: Enemy,
-    enemyCollisionTotalImpulse :: Vect
-  }
-
-shapeCollisionType' :: Shape -> StateVar CollisionType'
-shapeCollisionType' =
-  mapStateVar
-    (toEnum . fromEnum)
-    (toEnum . fromEnum)
-    . shapeCollisionType
-
-spaceAddCollisionHandler' :: Space -> CollisionType' -> CollisionType' -> IO CollisionHandlerPtr
-spaceAddCollisionHandler' space ct1 ct2 =
-  spaceAddCollisionHandler
-    space
-    (toEnum $ fromEnum ct1)
-    (toEnum $ fromEnum ct2)
-
-spaceAddWildcardHandler' :: Space -> CollisionType' -> IO CollisionHandlerPtr
-spaceAddWildcardHandler' space ct1 =
-  spaceAddWildcardHandler
-    space
-    (toEnum $ fromEnum ct1)
 
 window :: Display
 window = FullScreen 
