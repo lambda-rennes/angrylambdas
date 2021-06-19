@@ -71,10 +71,10 @@ clipSlingshotPosition Slingshot {slingshotCenter, slingshotRadius} mousePos@(mX,
    in (iX + ballDist * vX, iY + ballDist * vY)
 
 handleEvent :: Assets -> Event -> World -> IO World
-handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = slingshot@Slingshot {slingshotCenter, slingshotState = Grabbed _}} =
+handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = slingshot@Slingshot {slingshotRadius, slingshotCenter, slingshotState = Grabbed _}} =
   do
     let -- Final ball distance from its initial position after grab
-        ballDist = min distFromInitPos maxGrabDist
+        ballDist = min distFromInitPos slingshotRadius
         -- Distance between mouse cursor and initial position
         distFromInitPos = distance slingshotCenter mousePos
         -- Unit vector between ball
@@ -90,11 +90,11 @@ handleEvent
   (EventKey (MouseButton LeftButton) Up _ _)
   world@World
     { space,
-      slingshot = slingshot@Slingshot {slingshotCenter, slingshotState = Grabbed sPos@(sX, sY)},
+      slingshot = slingshot@Slingshot {slingshotCenter, slingshotRadius, slingshotState = Grabbed sPos@(sX, sY)},
       thrownBalls
     } = do
     let d = distance slingshotCenter sPos
-        initVelocityNorm = maxInitVelocity * d / maxGrabDist
+        initVelocityNorm = maxInitVelocity * d / slingshotRadius
         (bX, bY) = slingshotCenter
         v =
           ( initVelocityNorm * (bX - sX) / d,
