@@ -231,40 +231,10 @@ logY = -145
 
 
 
-createLog' :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log'
-createLog' space pic boxInfo pos = do
+createLog :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log
+createLog space pic boxInfo pos = do
   logBody <- createBox space boxInfo pos
   pure $ Log' pic logBody
-
-createLog :: Space -> Picture -> Pos -> IO Log
-createLog space logImg pos = do
-  logBody <- bodyNew logMass logMoment
-  spaceAddBody space logBody
-  let Vect width height = logDimension
-  logShape <- boxShapeNew logBody width height 0
-  spaceAddShape space logShape
-
-  shapeFriction logShape $= 0.5
-  shapeElasticity logShape $= 0.8
-
-  bodyPosition logBody $= pos2Vect pos
-  bodyAngle logBody $= 0
-
-  pure $ Log logImg logBody logDimension
-  where
-    logMass = 0.5
-    logMoment =
-      momentForBox
-        logMass
-        (logDimension & vX)
-        (logDimension & vY)
-    logDimension = Vect 700 200
-
--- renderLambda :: Pos -> IO Picture
--- renderLambda (x, y) = do
---   lambda <- loadBMP "imgs/lambda.bmp"
---   pure $ translate x y $ scale 0.69 0.69 $ lambda
-
 
 
 createWorld :: Assets -> Space -> IO World
@@ -274,7 +244,9 @@ createWorld assets@Assets{woodenLog} space = do
 
   -- Log
 
-  logObj <- createLog space woodenLog (logX, logY)
+  let logInfo = BoxInfo 0.5 (700, 200)
+  let logPos = 
+  logObj <- createLog space woodenLog  (0, -145)
 
   -- Blocks
   blocks <- traverse (createBlock space) blockDescriptions
@@ -290,13 +262,15 @@ createWorld assets@Assets{woodenLog} space = do
   -- World
   pure $ World space blocks initBall logObj [] [enemy]
 
-type Ground = Shape
 
 createGround :: Space -> IO ()
 createGround space = do
+  
+  -- Create Space body
   spaceBody <- get $ spaceStaticBody space
-  leftGround <- segmentShapeNew spaceBody leftGroundA leftGroundB 0
 
+  -- LeftBank
+  leftGround <- segmentShapeNew spaceBody leftGroundA leftGroundB 0
   shapeFriction leftGround $= groundFriction
   shapeElasticity leftGround $= 0.9
   groundCollisionType <- get $ shapeCollisionType leftGround
@@ -304,6 +278,7 @@ createGround space = do
   spaceAddShape space leftGround
   shapeCollisionType' leftGround $= GroundCT
 
+  --Right Bank
   rightGround <- segmentShapeNew spaceBody rightGroundA rightGroundB 0
   shapeFriction rightGround $= groundFriction
   shapeElasticity rightGround $= 0.9
