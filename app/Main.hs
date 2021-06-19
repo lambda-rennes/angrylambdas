@@ -297,27 +297,6 @@ createSpace gravity = do
   spaceGravity space $= gravity
   pure space
 
-
--- createBall :: Space -> Double -> Vect -> Vect -> IO Ball
--- createBall space radius initPos initVelocity = do
---   let moment = momentForCircle ballMass 0 radius (Vect 0 0)
-
---   ballBody <- bodyNew ballMass moment
---   spaceAddBody space ballBody
---   bodyPosition ballBody $= initPos
---   bodyVelocity ballBody $= initVelocity
-
---   ballShape <- circleShapeNew ballBody radius (Vect 0 0)
-
---   shapeFriction ballShape $= ballFriction
---   shapeElasticity ballShape $= 0.9
-
---   shapeCollisionType' ballShape $= BallCT
-
---   spaceAddShape space ballShape
-
---   pure ballBody
-
 createEnemy :: Space -> Double -> Vect -> Vect -> IO Ball
 createEnemy space radius initPos initVelocity = do
   let moment = momentForCircle ballMass 0 radius (Vect 0 0)
