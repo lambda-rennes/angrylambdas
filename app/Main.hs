@@ -36,7 +36,8 @@ main = do
   collisionQueue <- STM.atomically TQueue.newTQueue
   assets <- Assets.load
 
-  world <- createWorld space (assets & woodenLog) collisionQueue
+  world <- createWorld assets space 
+  createCallBacks space collisionQueue
 
 
   playIO window black 60 world (render assets) handleEvent (advanceSim space collisionQueue advanceWorld)
@@ -229,6 +230,12 @@ logX = 0
 logY = -145
 
 
+
+createLog' :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log'
+createLog' space pic boxInfo pos = do
+  logBody <- createBox space boxInfo pos
+  pure $ Log' pic logBody
+
 createLog :: Space -> Picture -> Pos -> IO Log
 createLog space logImg pos = do
   logBody <- bodyNew logMass logMoment
@@ -260,14 +267,14 @@ createLog space logImg pos = do
 
 
 
-createWorld :: Space -> Picture -> TQueue EnemyCollision -> IO World
-createWorld space logImg collisionQueue = do
+createWorld :: Assets -> Space -> IO World
+createWorld assets@Assets{woodenLog} space = do
   -- Ground
   _ <- createGround space
 
   -- Log
 
-  logObj <- createLog space logImg (logX, logY)
+  logObj <- createLog space woodenLog (logX, logY)
 
   -- Blocks
   blocks <- traverse (createBlock space) blockDescriptions
@@ -276,7 +283,7 @@ createWorld space logImg collisionQueue = do
   -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
   enemy <- createEnemy space ballRadius (Vect 300 400) (Vect 0 0)
 
-  _ <- createCallBacks space collisionQueue
+  
 
   -- logImg <- lambda <- loadBMP "imgs/lambda.bmp"
 
