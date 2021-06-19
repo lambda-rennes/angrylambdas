@@ -43,6 +43,7 @@ executable angrylambdas
   main-is: Main.hs
   other-modules:
       Assets
+      Collisions
       Constants
       Physics
       Rendering
