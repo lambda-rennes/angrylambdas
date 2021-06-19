@@ -26,7 +26,7 @@ import System.Exit
 import Utils
 import World
 
-play ::
+gameLoop ::
   Space -> 
   World ->
   TQueue Collision ->
@@ -35,7 +35,7 @@ play ::
   (Collision -> World -> IO World) ->
   (Float -> World -> IO World) ->
   IO ()
-play space initialWorld collisionQueue render processEvent processCollision advance = 
+gameLoop space initialWorld collisionQueue render processEvent processCollision advance = 
   playIO window black 60 initialWorld render processEvent advance'
     where advance' _ world = do
               spaceStep space (1 / 60)
@@ -54,7 +54,7 @@ main = do
   world <- createWorld assets space
   collisionQueue <- createCollisionQueue space
 
-  playIO window black 60 world (render assets) (handleEvent assets) (advanceSim space collisionQueue advanceWorld)
+  gameLoop space world collisionQueue (render assets) (handleEvent assets) (flip (handleCollision space)) (\_ world -> pure world) -- (advanceSim space collisionQueue advanceWorld)
 
 window :: Display
 window = FullScreen
@@ -123,6 +123,51 @@ handleEvent
       pure world'
 handleEvent _ _ world = pure world
 
+handleCollision :: Space -> World -> Collision -> IO World
+handleCollision
+  space
+  world
+  collision@Collision
+    { collisionObjA =
+        CollisionObject
+          { objectCollisionType = EnemyCT,
+            objectBody = enemyBody
+          }
+    } = handleEnemyCollision space world enemyBody (collision & collisionTotalImpulse)
+handleCollision
+  space
+  world
+  collision@Collision
+    { collisionObjB =
+        CollisionObject
+          { objectCollisionType = EnemyCT,
+            objectBody = enemyBody
+          }
+    } = handleEnemyCollision space world enemyBody (collision & collisionTotalImpulse)
+handleCollision _ world _ = pure world
+
+handleEnemyCollision :: Space -> World -> Body -> (Float, Float) -> IO World
+handleEnemyCollision space world enemyBody (impulseX, impulseY) = do
+  let impulse = impulseX ** 2 + impulseY ** 2
+  if impulse > 100000
+    then
+      ( do
+          let iterFunc body shape _ =
+                spaceRemoveShape space shape
+          bodyEachShape enemyBody iterFunc nullPtr
+          spaceRemoveBody space enemyBody
+          pure $
+            world
+              { enemies =
+                  filter
+                    ( \(Enemy gameObj) ->
+                        objBody gameObj /= enemyBody
+                    )
+                    (enemies world)
+              }
+      )
+    else pure world
+
 grabCircle :: Radius -> Pos -> Pos -> Bool
 grabCircle radius circlePos clickPos = radius >= distance circlePos clickPos
 
@@ -131,57 +176,3 @@ distance (x1, y1) (x2, y2) = sqrt $ (x2 - x1) ** 2 + (y2 - y1) ** 2
 
 advanceWorld :: Float -> World -> World
 advanceWorld _ world = world
-
-advanceSim ::
-  Space ->
-  TQueue Collision ->
-  (Float -> World -> World) ->
-  Float ->
-  World ->
-  IO World
-advanceSim space collisionQueue advance tic world = do
-  collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
-  let handleCollision
-        world
-        collision@Collision
-          { collisionObjA =
-              CollisionObject
-                { objectCollisionType = EnemyCT,
-                  objectBody = enemyBody
-                }
-          } = handleEnemyCollision enemyBody (collision & collisionTotalImpulse)
-      handleCollision
-        world
-        collision@Collision
-          { collisionObjB =
-              CollisionObject
-                { objectCollisionType = EnemyCT,
-                  objectBody = enemyBody
-                }
-          } = handleEnemyCollision enemyBody (collision & collisionTotalImpulse)
-      handleCollision world _ = pure world
-      handleEnemyCollision enemyBody (impulseX, impulseY) = do
-        let impulse = impulseX ** 2 + impulseY ** 2
-        if impulse > 100000
-          then
-            ( do
-                let iterFunc body shape _ =
-                      spaceRemoveShape space shape
-                bodyEachShape enemyBody iterFunc nullPtr
-                spaceRemoveBody space enemyBody
-                pure $
-                  world
-                    { enemies =
-                        filter
-                          ( \(Enemy gameObj) ->
-                              objBody gameObj /= enemyBody
-                          )
-                          (enemies world)
-                    }
-            )
-          else pure world
-
-  world' <- foldM handleCollision world collisions
-  spaceStep space (1 / 60)
-  pure $ advance tic world'
-
