@@ -60,9 +60,9 @@ createBlock space blockImg boxInfo pos = do
       }
 
 createBall :: Space -> Picture -> DiscInfo Float -> Pos -> (Float, Float) -> IO Ball
-createBall space ballPicture discInfo pos velocity = do
-  ballBody <- createDisc space discInfo pos velocity
-  pure $ Ball {..}
+createBall space objPicture discInfo pos velocity = do
+  objBody <- createDisc space discInfo pos velocity
+  pure $ Ball $ GameObject {..}
 
 handleEvent :: Assets -> Event -> World -> IO World
 handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = ball@Slingshot {slingshotGrabbed = Grabbed}} =
@@ -193,12 +193,12 @@ logX = 0
 logY = -145
 
 createLog :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log
-createLog space pic boxInfo pos = do
-  logBody <- createBox space boxInfo pos
+createLog space logPicture boxInfo pos = do
+  objBody <- createBox space boxInfo pos
   pure $
-    Log
-      { logPicture = pic,
-        logBody = logBody
+    Log $ GameObject
+      { objPicture = logPicture,
+        objBody
       }
 
 createWorld :: Assets -> Space -> IO World
