@@ -64,17 +64,6 @@ enemyCollisionCallback collisionQueue arbiter space _ = do
   enemyCollisionTotalImpulse <- get $ arbiterTotalImpulse arbiter
   STM.atomically $ TQueue.writeTQueue collisionQueue $ EnemyCollision {..}
 
-data BlockDescription = BlockDescription
-  { bdescPosition :: Vect,
-    bdescDimensions :: Vect,
-    bdescAngle :: Double
-  }
-
-
-
-
-
-
 
 initBall :: Slingshot
 initBall = Slingshot ballRadius initSlingshotPos Free
