@@ -40,7 +40,7 @@ main = do
   createCallBacks space collisionQueue
 
 
-  playIO window black 60 world (render assets) handleEvent (advanceSim space collisionQueue advanceWorld)
+  playIO window black 60 world (render assets) (handleEvent assets) (advanceSim space collisionQueue advanceWorld)
 
 
 
@@ -86,15 +86,18 @@ createBlock' space blockImg boxInfo pos = do
                , blockBody = blockBody 
                }
 
--- polygon $
--- rectanglePath (double2Float width) (double2Float height)
+createBall :: Space -> Picture -> DiscInfo Float -> Pos -> (Float, Float) -> IO Ball'
+createBall space ballPicture discInfo pos velocity = do
+  ballBody <- createDisc space discInfo pos velocity
+  pure $ Ball' { .. }
 
 
 
 
 
-handleEvent :: Event -> World -> IO World
-handleEvent (EventMotion mousePos@(mX, mY)) world@World {slingshot = (ball@Slingshot {slingshotGrabbed = Grabbed})} =
+
+handleEvent :: Assets -> Event -> World -> IO World
+handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = (ball@Slingshot {slingshotGrabbed = Grabbed})} =
   do
     let -- Final ball distance from its initial position after grab
         ballDist = min distFromInitPos maxGrabDist
@@ -107,25 +110,33 @@ handleEvent (EventMotion mousePos@(mX, mY)) world@World {slingshot = (ball@Sling
         (iX, iY) = ballInitPos
 
     pure world {slingshot = ball {slingshotPosition = newPos}}
-handleEvent (EventKey (Char 'q') Down _ _) _ = exitSuccess
+handleEvent _ (EventKey (Char 'q') Down _ _) _ = exitSuccess
 handleEvent
+  Assets{..}
   (EventKey (MouseButton LeftButton) Up _ _)
   world@World {space, slingshot = (ball@Slingshot {slingshotPosition = sPos@(sX, sY), slingshotGrabbed = Grabbed}), thrownBalls} = do
     let d = distance ballInitPos sPos
         initVelocityNorm = maxInitVelocity * d / maxGrabDist
         (bX, bY) = ballInitPos
         v =
-          Vect
-            (float2Double $ initVelocityNorm * (bX - sX) / d)
-            (float2Double $ initVelocityNorm * (bY - sY) / d)
+            ( initVelocityNorm * (bX - sX) / d
+            , initVelocityNorm * (bY - sY) / d
+            )
 
-    newBall <- createBall space ballRadius (Vect (float2Double sX) (float2Double sY)) v
+    let discInfo = DiscInfo
+             { discRadius = ballRadius
+             , discElasticity = 0.9
+             , discFriction = 0
+             , discMass = 5
+             }
+    newBall <- createBall space lambdaBall discInfo (sX, sY) v
     pure $
       world
         { slingshot = initBall,
           thrownBalls = newBall : thrownBalls
         }
 handleEvent
+  _
   (EventKey (MouseButton LeftButton) Down _ mousePos)
   world@World
     { slingshot =
@@ -140,7 +151,7 @@ handleEvent
       let world' = world {slingshot = ball {slingshotGrabbed = Grabbed}}
       -- print $ show $ world'
       pure world'
-handleEvent _ world = pure world
+handleEvent _ _ world = pure world
 
 
 
@@ -286,48 +297,26 @@ createSpace gravity = do
   spaceGravity space $= gravity
   pure space
 
-blockDescriptions :: [BlockDescription]
-blockDescriptions =
-  [ BlockDescription
-      { bdescPosition = Vect 250 (-25),
-        bdescDimensions = Vect 25 250,
-        bdescAngle = 0
-      },
-    BlockDescription
-      { bdescPosition = Vect 350 (-25),
-        bdescDimensions = Vect 25 250,
-        bdescAngle = 0
-      },
-    BlockDescription
-      { bdescPosition = Vect 300 (70),
-        bdescDimensions = Vect 25 250,
-        bdescAngle = 3.1415 / 2
-      }
-  ]
 
+-- createBall :: Space -> Double -> Vect -> Vect -> IO Ball
+-- createBall space radius initPos initVelocity = do
+--   let moment = momentForCircle ballMass 0 radius (Vect 0 0)
 
+--   ballBody <- bodyNew ballMass moment
+--   spaceAddBody space ballBody
+--   bodyPosition ballBody $= initPos
+--   bodyVelocity ballBody $= initVelocity
 
+--   ballShape <- circleShapeNew ballBody radius (Vect 0 0)
 
+--   shapeFriction ballShape $= ballFriction
+--   shapeElasticity ballShape $= 0.9
 
-createBall :: Space -> Double -> Vect -> Vect -> IO Ball
-createBall space radius initPos initVelocity = do
-  let moment = momentForCircle ballMass 0 radius (Vect 0 0)
+--   shapeCollisionType' ballShape $= BallCT
 
-  ballBody <- bodyNew ballMass moment
-  spaceAddBody space ballBody
-  bodyPosition ballBody $= initPos
-  bodyVelocity ballBody $= initVelocity
+--   spaceAddShape space ballShape
 
-  ballShape <- circleShapeNew ballBody radius (Vect 0 0)
-
-  shapeFriction ballShape $= ballFriction
-  shapeElasticity ballShape $= 0.9
-
-  shapeCollisionType' ballShape $= BallCT
-
-  spaceAddShape space ballShape
-
-  pure ballBody
+--   pure ballBody
 
 createEnemy :: Space -> Double -> Vect -> Vect -> IO Ball
 createEnemy space radius initPos initVelocity = do
