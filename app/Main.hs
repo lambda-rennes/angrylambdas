@@ -51,18 +51,20 @@ initBall :: Slingshot
 initBall = Slingshot ballRadius initSlingshotPos Free
 
 createBlock :: Space -> Picture -> BoxInfo Float -> Pos -> IO Block
-createBlock space blockImg boxInfo pos = do
-  blockBody <- createBox space boxInfo pos
+createBlock space objPicture boxInfo pos = do
+  objBody <- createBox space boxInfo pos
   pure $
-    Block
-      { blockPicture = blockImg,
-        blockBody = blockBody
-      }
+    Block $ GameObject {..}
 
 createBall :: Space -> Picture -> DiscInfo Float -> Pos -> (Float, Float) -> IO Ball
 createBall space objPicture discInfo pos velocity = do
   objBody <- createDisc space discInfo pos velocity
   pure $ Ball $ GameObject {..}
+
+createEnemy :: Space -> Picture -> DiscInfo Float -> Pos -> (Float, Float) -> IO Enemy
+createEnemy space objPicture discInfo pos velocity = do
+  objBody <- createDisc space discInfo pos velocity
+  pure $ Enemy $ GameObject {..}
 
 handleEvent :: Assets -> Event -> World -> IO World
 handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = ball@Slingshot {slingshotGrabbed = Grabbed}} =
@@ -99,7 +101,7 @@ handleEvent
           DiscInfo
             { discRadius = ballRadius,
               discElasticity = 0.9,
-              discFriction = 0,
+              discFriction = 0.5,
               discMass = 5
             }
     newBall <- createBall space lambdaBall discInfo (sX, sY) v
@@ -114,10 +116,10 @@ handleEvent
   world@World
     { slingshot =
         ball@Slingshot
-            { slingshotRadius,
-              slingshotPosition,
-              slingshotGrabbed = Free
-            }
+          { slingshotRadius,
+            slingshotPosition,
+            slingshotGrabbed = Free
+          }
     }
     | grabCircle slingshotRadius slingshotPosition mousePos = do
       let world' = world {slingshot = ball {slingshotGrabbed = Grabbed}}
@@ -146,31 +148,42 @@ advanceSim space collisionQueue advance tic world = do
   let handleCollision
         world
         collision@Collision
-                      { collisionObjA =
-                          CollisionObject
-                            { objectCollisionType = EnemyCT
-                            , objectBody = enemyBody
-                            }
-                      } = handleEnemyCollision enemyBody (collision & collisionTotalImpulse)
+          { collisionObjA =
+              CollisionObject
+                { objectCollisionType = EnemyCT,
+                  objectBody = enemyBody
+                }
+          } = handleEnemyCollision enemyBody (collision & collisionTotalImpulse)
       handleCollision
         world
         collision@Collision
-                      { collisionObjB =
-                          CollisionObject
-                            { objectCollisionType = EnemyCT
-                            , objectBody = enemyBody
-                            }
-                      } = handleEnemyCollision enemyBody (collision & collisionTotalImpulse)
+          { collisionObjB =
+              CollisionObject
+                { objectCollisionType = EnemyCT,
+                  objectBody = enemyBody
+                }
+          } = handleEnemyCollision enemyBody (collision & collisionTotalImpulse)
       handleCollision world _ = pure world
       handleEnemyCollision enemyBody (impulseX, impulseY) = do
-            let impulse = impulseX ** 2 + impulseY ** 2
-            if impulse > 100000 then (do
-              let iterFunc body shape _ =
-                    spaceRemoveShape space shape
-              bodyEachShape enemyBody iterFunc nullPtr
-              spaceRemoveBody space enemyBody
-              pure $ world {enemies = filter (/= enemyBody) (enemies world)}) else
-              pure world
+        let impulse = impulseX ** 2 + impulseY ** 2
+        if impulse > 100000
+          then
+            ( do
+                let iterFunc body shape _ =
+                      spaceRemoveShape space shape
+                bodyEachShape enemyBody iterFunc nullPtr
+                spaceRemoveBody space enemyBody
+                pure $
+                  world
+                    { enemies =
+                        filter
+                          ( \(Enemy gameObj) ->
+                              objBody gameObj /= enemyBody
+                          )
+                          (enemies world)
+                    }
+            )
+          else pure world
 
   world' <- foldM handleCollision world collisions
   spaceStep space (1 / 60)
@@ -196,13 +209,14 @@ createLog :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log
 createLog space logPicture boxInfo pos = do
   objBody <- createBox space boxInfo pos
   pure $
-    Log $ GameObject
-      { objPicture = logPicture,
-        objBody
-      }
+    Log $
+      GameObject
+        { objPicture = logPicture,
+          objBody
+        }
 
 createWorld :: Assets -> Space -> IO World
-createWorld assets@Assets {woodenLog, wood} space = do
+createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
   -- Ground
   _ <- createGround space
 
@@ -233,12 +247,19 @@ createWorld assets@Assets {woodenLog, wood} space = do
           (boxInfo, (25, 250), 3.1415 / 2)
         ]
 
-  blocks <- forM blocks $ \(box, pos, _) -> 
+  blocks <- forM blocks $ \(box, pos, _) ->
     createBlock space wood box pos
 
   -- Ball
   -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
-  enemy <- createEnemy space ballRadius (Vect 300 400) (Vect 0 0)
+  let discInfo =
+        DiscInfo
+          { discRadius = ballRadius,
+            discElasticity = 0.9,
+            discFriction = 5,
+            discMass = 5
+          }
+  enemy <- createEnemy space monsterBind discInfo (300, 400) (50, 0)
 
   -- logImg <- lambda <- loadBMP "imgs/lambda.bmp"
 
@@ -278,22 +299,22 @@ createSpace gravity = do
   spaceGravity space $= gravity
   pure space
 
-createEnemy :: Space -> Double -> Vect -> Vect -> IO Body
-createEnemy space radius initPos initVelocity = do
-  let moment = momentForCircle ballMass 0 radius (Vect 0 0)
+-- createEnemy :: Space -> Double -> Vect -> Vect -> IO Body
+-- createEnemy space radius initPos initVelocity = do
+--   let moment = momentForCircle ballMass 0 radius (Vect 0 0)
 
-  enemyBody <- bodyNew ballMass moment
-  spaceAddBody space enemyBody
-  bodyPosition enemyBody $= initPos
-  bodyVelocity enemyBody $= initVelocity
+--   enemyBody <- bodyNew ballMass moment
+--   spaceAddBody space enemyBody
+--   bodyPosition enemyBody $= initPos
+--   bodyVelocity enemyBody $= initVelocity
 
-  enemyShape <- circleShapeNew enemyBody radius (Vect 0 0)
+--   enemyShape <- circleShapeNew enemyBody radius (Vect 0 0)
 
-  shapeFriction enemyShape $= 0.7
-  shapeElasticity enemyShape $= 0
+--   shapeFriction enemyShape $= 0.7
+--   shapeElasticity enemyShape $= 0
 
-  shapeCollisionType' enemyShape $= EnemyCT
+--   shapeCollisionType' enemyShape $= EnemyCT
 
-  spaceAddShape space enemyShape
+--   spaceAddShape space enemyShape
 
-  pure enemyBody
+--   pure enemyBody
