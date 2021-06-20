@@ -56,9 +56,9 @@ handleEvent Assets{lambdaBall} (EventKey (MouseButton LeftButton) Up _ position)
         discProperties =
           DiscInfo
             { discMass = ballMass
-            , discRadius = (slingshotRadius slingshot)
+            , discRadius = slingshotBallRadius slingshot
             , discFriction = ballFriction
-            , discElasticity = 1.0
+            , discElasticity = 0.7
             }
         speedVector = (0, 0)
 
