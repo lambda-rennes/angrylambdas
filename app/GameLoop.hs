@@ -20,13 +20,17 @@ gameLoop ::
   (Collision -> World -> IO World) ->
   (Float -> World -> IO World) ->
   IO ()
-gameLoop s initialWorld collisionQueue render processEvent processCollision _ = -- TODO why unused
+gameLoop s initialWorld collisionQueue render processEvent processCollision advance =
   playIO display black 60 initialWorld render processEvent advance'
   where
-    advance' _ world = do
+    advance' dt world = do
+      -- Physics engine prefers constant simulation steps.
       spaceStep s (1 / 60)
       collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
-      foldM (flip processCollision) world collisions
+      -- Handle collisions one by one
+      newWorld <- foldM (flip processCollision) world collisions
+      -- Finally call the user 'advance' function
+      advance dt newWorld
 
 
 display :: Display
