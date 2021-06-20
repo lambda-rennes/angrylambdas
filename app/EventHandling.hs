@@ -22,7 +22,7 @@ handleEvent _ (EventKey (Char 'q') Down _ _) _ = exitSuccess
 handleEvent _ (EventKey (MouseButton LeftButton) Down _ position) world@World{slingshot} =
   if clickedSlingshot then
     do
-      print $ slingshotCenter slingshot
+      print $ slingshotCenter
       putStrLn "Slingshot clicked!"
       case slingshotState slingshot of
         Free -> return world{slingshot = slingshot{slingshotState = Grabbed position}}
@@ -32,7 +32,8 @@ handleEvent _ (EventKey (MouseButton LeftButton) Down _ position) world@World{sl
   else
     pure world
   where
-    clickedSlingshot = slingshotBallRadius slingshot >= distance (slingshotCenter slingshot) position
+    Slingshot{slingshotBallRadius, slingshotCenter} = slingshot 
+    clickedSlingshot = slingshotBallRadius >= distance slingshotCenter position
 handleEvent _ _ world = pure world
 
 handleCollision :: Space -> World -> Collision -> IO World
