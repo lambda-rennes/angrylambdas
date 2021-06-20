@@ -39,6 +39,11 @@ handleEvent _ (EventKey (MouseButton LeftButton) Down _ position) world@World{sl
 handleEvent _ (EventKey (MouseButton LeftButton) Up _ position) world@World{slingshot} =
   pure $ world { slingshot = slingshot { slingshotState = Free } }
 
+handleEvent _ (EventMotion position) world@World{slingshot} =
+  case slingshotState slingshot of
+    Free -> pure world
+    Grabbed _ -> pure $ world { slingshot = slingshot { slingshotState = Grabbed position } }
+
 
 handleEvent _ _ world = pure world
 
