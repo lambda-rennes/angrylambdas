@@ -75,32 +75,14 @@ handleEvent
   
 handleEvent _ _ world = pure world
 
--- Collision handling
 handleCollision :: Space -> World -> Collision -> IO World
--- Enemy collision
-handleCollision
-  space
-  world
-  collision@Collision
-    { collisionObjA =
-        CollisionObject
-          { objectCollisionType = EnemyCT,
-            objectBody = enemyBody
-          }
-    } = handleEnemyCollision space world enemyBody (collision & collisionTotalImpulse)
---Enemy collision?
-handleCollision
-  space
-  world
-  collision@Collision
-    { collisionObjB =
-        CollisionObject
-          { objectCollisionType = EnemyCT,
-            objectBody = enemyBody
-          }
-    } = handleEnemyCollision space world enemyBody (collision & collisionTotalImpulse)
--- No collision
-handleCollision _ world _ = pure world
+handleCollision space world collision =
+    handleObject (collision & collisionObjA) world >>=
+    handleObject (collision & collisionObjB)
+  where
+    handleObject CollisionObject {objectCollisionType = EnemyCT, objectBody} w =
+      handleEnemyCollision space w objectBody (collision & collisionTotalImpulse)
+    handleObject _ w = pure w
 
 handleEnemyCollision :: Space -> World -> Body -> (Float, Float) -> IO World
 handleEnemyCollision space world enemyBody (impulseX, impulseY) = do
