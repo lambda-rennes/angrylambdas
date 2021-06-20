@@ -59,7 +59,7 @@ initSlingshotPos :: Num a => (a, a)
 initSlingshotPos = (-350, 200)
 
 leftBankAX, leftBankAY, leftBankBX, leftBankBY :: Floating a => a
-leftBankAX = -1000
+leftBankAX = -960
 leftBankAY = -220
 leftBankBX = -310
 leftBankBY = -175
@@ -67,10 +67,8 @@ leftBankBY = -175
 rightBankAX, rightBankAY, rightBankBX, rightBankBY :: Floating a => a
 rightBankAX = 225
 rightBankAY = -150
-rightBankBX = 1000
+rightBankBX = 960
 rightBankBY = -100
-
-
 
 leftGroundA :: Vect
 leftGroundB :: Vect
@@ -85,10 +83,6 @@ rightGroundB :: Vect
   ( Vect rightBankAX rightBankAY,
     Vect rightBankBX rightBankBY
   )
-
-logX, logY :: Floating a => a
-logX = 0
-logY = -145
 
 createLog :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log
 createLog space logPicture boxInfo pos = do
@@ -108,13 +102,13 @@ createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
   -- Log
   let logInfo =
         BoxInfo
-          { boxMass = 0.5,
-            boxSize = (700, 200),
+          { boxMass = 2,
+            boxSize = (700, 90),
             boxFriction = 0.5,
             boxElasticity = 0.8
           }
 
-  let logPos = (0, -145)
+  let logPos = (0, -80)
 
   logObj <- createLog space woodenLog logInfo logPos
 
@@ -127,9 +121,9 @@ createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
             boxSize = (25, 250)
           }
       blocks =
-        [ (boxInfo, (250, -25), 0),
-          (boxInfo, (350, -25), 0),
-          (boxInfo, (25, 250), 3.1415 / 2)
+        [ (boxInfo, (1450, -25), 0),
+          (boxInfo, (1550, -25), 0),
+          (boxInfo, (1625, 250), 3.1415 / 2)
         ]
 
   blocks <- forM blocks $ \(box, pos, _) ->
@@ -144,7 +138,7 @@ createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
             discFriction = 5,
             discMass = 5
           }
-  enemy <- createEnemy space monsterBind discInfo (300, 400) (50, 0)
+  enemy <- createEnemy space monsterBind discInfo (1500, 400) (50, 0)
 
   -- logImg <- lambda <- loadBMP "imgs/lambda.bmp"
 
@@ -192,7 +186,7 @@ initSlingshot :: Slingshot
 initSlingshot = Slingshot
   { slingshotBallRadius = ballRadius
   , slingshotRadius = 300
-  , slingshotCenter = (-1000, 200)
+  , slingshotCenter = (-700, 30)
   , slingshotState = Free
   }
 

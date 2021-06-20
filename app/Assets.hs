@@ -16,7 +16,7 @@ load :: IO Assets
 load = do
 
     wood <- loadBMP "imgs/882.bmp"
-    landscape <- loadBMP "imgs/landscape3.bmp"
+    landscape <- loadBMP "imgs/landscape5.bmp"
     woodenLog <- loadBMP "imgs/pitoune.bmp"
     lambdaBall <- scale 0.69 0.69 <$> loadBMP "imgs/lambda.bmp"
     monsterBind <- scale 0.69 0.69 <$> loadBMP "imgs/monster.bmp"

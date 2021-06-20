@@ -30,4 +30,4 @@ gameLoop space initialWorld collisionQueue render processEvent processCollision 
 
 
 display :: Display
-display = FullScreen
+display = InWindow "AngryLambdas" (1920, 1000) (0,0)
