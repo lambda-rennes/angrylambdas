@@ -92,18 +92,11 @@ handleEnemyCollision space world enemyBody (impulseX, impulseY) = do
       ( do
           let iterFunc _ shape _ =
                 spaceRemoveShape space shape
+              isCurrentEnemy (Enemy gameObject) = objBody gameObject == enemyBody
           bodyEachShape enemyBody iterFunc nullPtr
           spaceRemoveBody space enemyBody
-          pure $
-            world
-              { enemies =
-                  filter
-                    ( \(Enemy gameObj) ->
-                        objBody gameObj /= enemyBody
-                    )
-                    (enemies world)
-              }
-      )
+          pure $ world { enemies = filter (not . isCurrentEnemy) (enemies body) } )
+        
     else pure world
 
 grabCircle :: Radius -> Pos -> Pos -> Bool
