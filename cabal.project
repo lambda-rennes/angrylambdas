@@ -1,0 +1,6 @@
+packages: .
+
+source-repository-package
+    type: git
+    location: https://github.com/gdeest/Chiphunk.git
+    tag: e85e6c80c9ef77e2000d716b39e041f1988adbf0
