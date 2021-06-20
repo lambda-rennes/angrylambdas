@@ -60,7 +60,7 @@ handleEvent Assets{lambdaBall} (EventKey (MouseButton LeftButton) Up _ position)
             , discFriction = ballFriction
             , discElasticity = 1.0
             }
-        speedVector = (1.0, 1.0)
+        speedVector = (0, 0)
 
 handleEvent _ (EventMotion position) world@World{slingshot} =
   case slingshotState slingshot of
