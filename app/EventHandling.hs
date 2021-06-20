@@ -19,8 +19,9 @@ import World
 handleEvent :: Assets -> Event -> World -> IO World
 -- Quit key event
 handleEvent _ (EventKey (Char 'q') Down _ _) _ = exitSuccess
-handleEvent _ (EventKey (MouseButton LeftButton) Up _ _) world = do
+handleEvent _ (EventKey (MouseButton LeftButton) Up _ (x, y)) world = do
   print $ slingshotCenter . slingshot $ world
+  print $ "Click position is x: " ++ (show x) ++ " y: " ++ (show y)
   putStrLn "Slingshot clicked!"
   return world
 handleEvent _ _ world = pure world
