@@ -36,8 +36,31 @@ handleEvent _ (EventKey (MouseButton LeftButton) Down _ position) world@World{sl
     Slingshot{slingshotBallRadius, slingshotCenter} = slingshot 
     clickedSlingshot = slingshotBallRadius >= distance slingshotCenter position
 
-handleEvent _ (EventKey (MouseButton LeftButton) Up _ position) world@World{slingshot} =
-  pure $ world { slingshot = slingshot { slingshotState = Free } }
+    -- DiscInfo
+    --   { discMass :: a
+    --   , discRadius :: a
+    --   , discFriction :: a
+    --   , discElasticity :: a
+
+handleEvent Assets{lambdaBall} (EventKey (MouseButton LeftButton) Up _ position) world@World{slingshot, thrownBalls, space} =
+  case slingshotState slingshot of
+    Free -> pure world
+    Grabbed currentPosition -> do
+      newBall <- newBallAction
+      pure world {
+        slingshot = slingshot { slingshotState = Free }
+        , thrownBalls = newBall : thrownBalls
+        }
+      where
+        newBallAction = createBall space lambdaBall discProperties currentPosition speedVector
+        discProperties =
+          DiscInfo
+            { discMass = ballMass
+            , discRadius = (slingshotRadius slingshot)
+            , discFriction = ballFriction
+            , discElasticity = 1.0
+            }
+        speedVector = (1.0, 1.0)
 
 handleEvent _ (EventMotion position) world@World{slingshot} =
   case slingshotState slingshot of
