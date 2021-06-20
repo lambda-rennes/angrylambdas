@@ -17,6 +17,7 @@ import Data.Function ((&))
 import Data.StateVar (StateVar, mapStateVar)
 import Foreign.Ptr (nullPtr)
 import GHC.Float
+import GameLoop
 import Graphics.Gloss
 import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Interface.IO.Game
@@ -25,23 +26,6 @@ import Rendering
 import System.Exit
 import Utils
 import World
-
-gameLoop ::
-  Space ->
-  World ->
-  TQueue Collision ->
-  (World -> IO Picture) ->
-  (Event -> World -> IO World) ->
-  (Collision -> World -> IO World) ->
-  (Float -> World -> IO World) ->
-  IO ()
-gameLoop space initialWorld collisionQueue render processEvent processCollision advance =
-  playIO window black 60 initialWorld render processEvent advance'
-  where
-    advance' _ world = do
-      spaceStep space (1 / 60)
-      collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
-      foldM (flip processCollision) world collisions
 
 main :: IO ()
 main = do
@@ -52,12 +36,7 @@ main = do
   world <- createWorld assets space
   collisionQueue <- createCollisionQueue space
 
-  gameLoop space world collisionQueue (render assets) (handleEvent assets) (flip (handleCollision space)) (\_ world -> pure world) -- (advanceSim space collisionQueue advanceWorld)
-
-window :: Display
-window = FullScreen
-
--- window = InWindow "Abstract them all" (2000, 1000) (500, 500)
+  gameLoop space world collisionQueue (render assets) (handleEvent assets) (flip (handleCollision space)) (\_ world -> pure world)
 
 clipSlingshotPosition :: Slingshot -> Pos -> Pos
 clipSlingshotPosition Slingshot {slingshotCenter, slingshotRadius} mousePos@(mX, mY) =
@@ -90,7 +69,12 @@ handleEvent
   (EventKey (MouseButton LeftButton) Up _ _)
   world@World
     { space,
-      slingshot = slingshot@Slingshot {slingshotCenter, slingshotRadius, slingshotState = Grabbed sPos@(sX, sY)},
+      slingshot =
+        slingshot@Slingshot
+          { slingshotCenter,
+            slingshotRadius,
+            slingshotState = Grabbed sPos@(sX, sY)
+          },
       thrownBalls
     } = do
     let d = distance slingshotCenter sPos
@@ -120,13 +104,19 @@ handleEvent
   world@World
     { slingshot =
         slingshot@Slingshot
-          { slingshotState = Free
-          , slingshotBallRadius
-          , slingshotCenter
+          { slingshotState = Free,
+            slingshotBallRadius,
+            slingshotCenter
           }
     }
     | grabCircle slingshotBallRadius slingshotCenter mousePos = do
-      let world' = world {slingshot = slingshot {slingshotState = Grabbed (clipSlingshotPosition slingshot mousePos)}}
+      let world' =
+            world
+              { slingshot =
+                  slingshot
+                    { slingshotState = Grabbed (clipSlingshotPosition slingshot mousePos)
+                    }
+              }
       -- print $ show $ world'
       pure world'
 handleEvent _ _ world = pure world

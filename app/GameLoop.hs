@@ -1,0 +1,33 @@
+module GameLoop where
+
+import Chiphunk.Low
+import Graphics.Gloss.Interface.IO.Game
+import qualified Control.Concurrent.STM as STM
+import Control.Concurrent.STM.TQueue (TQueue)
+import qualified Control.Concurrent.STM.TQueue as TQueue
+
+import Control.Monad (foldM)
+
+import World 
+import Collisions
+
+gameLoop ::
+  Space ->
+  World ->
+  TQueue Collision ->
+  (World -> IO Picture) ->
+  (Event -> World -> IO World) ->
+  (Collision -> World -> IO World) ->
+  (Float -> World -> IO World) ->
+  IO ()
+gameLoop space initialWorld collisionQueue render processEvent processCollision advance =
+  playIO display black 60 initialWorld render processEvent advance'
+  where
+    advance' _ world = do
+      spaceStep space (1 / 60)
+      collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
+      foldM (flip processCollision) world collisions
+
+
+display :: Display
+display = FullScreen
