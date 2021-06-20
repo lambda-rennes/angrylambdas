@@ -19,7 +19,7 @@ main = do
   -- Create Space
   space <- createSpace gravity
 
-  -- Create Wolrd
+  -- Create World
   world <- createWorld assets space
   
   -- Setup Collision queue
