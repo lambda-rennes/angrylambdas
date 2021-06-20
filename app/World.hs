@@ -41,26 +41,18 @@ data Slingshot = Slingshot
   { slingshotRadius :: Float,
     slingshotBallRadius :: Float,
     slingshotCenter :: Pos,
-    slingshotState :: Grabbed Pos
+    slingshotState :: Grabbed
   }
   deriving (Show)
 
 -- Utils types
 type Pos = (Float, Float)
 
-data Grabbed a = Grabbed a | Free deriving (Show)
+data Grabbed = Grabbed Pos | Free deriving (Show)
 
-instance Functor Grabbed where
-  fmap f Free = Free
-  fmap f (Grabbed a) = Grabbed $ f a
-
-instance Foldable Grabbed where
-  foldMap f Free = mempty
-  foldMap f (Grabbed a) = f a
-
-instance Traversable Grabbed where
-  traverse f Free = pure Free
-  traverse f (Grabbed a) = Grabbed <$> f a
+grabbed :: a -> (Pos -> a) -> Grabbed -> a
+grabbed a _ Free = a
+grabbed _ f (Grabbed p) = f p
 
 type Radius = Float
 

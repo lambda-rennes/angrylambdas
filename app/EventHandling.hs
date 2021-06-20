@@ -61,11 +61,11 @@ handleEvent Assets{lambdaBall} (EventKey (MouseButton LeftButton) Up _ position)
             , discElasticity = 0.7
             }
         speedVector = (0, 0)
-
+-- grabbed :: a -> (Pos -> a) -> Grabbed -> a
 handleEvent _ (EventMotion position) world@World{slingshot} =
-  case slingshotState slingshot of
-    Free -> pure world
-    Grabbed _ -> pure $ world { slingshot = slingshot { slingshotState = Grabbed position } }
+  pure
+    $ grabbed world (\_ -> world { slingshot = slingshot { slingshotState = Grabbed position } })
+    $ slingshotState slingshot
 
 
 handleEvent _ _ world = pure world
