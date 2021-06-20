@@ -19,12 +19,17 @@ import World
 handleEvent :: Assets -> Event -> World -> IO World
 -- Quit key event
 handleEvent _ (EventKey (Char 'q') Down _ _) _ = exitSuccess
-handleEvent _ (EventKey (MouseButton LeftButton) Up _ (x, y)) world = do
-  print $ slingshotCenter . slingshot $ world
-  print $ "Click position is x: " ++ (show x) ++ " y: " ++ (show y)
+handleEvent _ (EventKey (MouseButton LeftButton) Up _ (position)) world@World{slingshot} = do
+  print $ slingshotCenter slingshot
   putStrLn "Slingshot clicked!"
-  return world
+  case slingshotState slingshot of
+    Free -> return world{slingshot = slingshot{slingshotState = Grabbed position}}
+    Grabbed oldPosition -> do
+      putStrLn $ "Slingshot released, NIY (" ++ show oldPosition ++ ")"
+      return world
 handleEvent _ _ world = pure world
 
 handleCollision :: Space -> World -> Collision -> IO World
 handleCollision _ world _ = pure world
+
+
