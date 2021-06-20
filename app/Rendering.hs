@@ -15,18 +15,10 @@ import Constants
 
 render :: Assets -> World -> IO Picture
 render assets@Assets {..} World {slingshot, log', thrownBalls, enemies} = do
-  let getPosAngle body = (,) <$> get (bodyPosition body) <*> get (bodyAngle body)
-
-  -- ballPosAngles <- traverse getPosAngle thrownBalls
-  -- let ballPictures = flip fmap ballPosAngles $ \(Vect x y, angle) ->
-  --       translate (double2Float x) (double2Float y) $ rotate (- (double2Float $ rad2deg angle)) lambdaBall
-
+  
   ballPictures <- traverse renderBall thrownBalls
   enemyPictures <- traverse renderEnemy enemies
-
-  --blockPictures <- traverse renderBlock blocks
-
-  slingshot <- renderSlingshot assets slingshot
+  slingshotPicture <- renderSlingshot assets slingshot
   logPicture <- renderLog log'
 
   pure $
@@ -36,8 +28,7 @@ render assets@Assets {..} World {slingshot, log', thrownBalls, enemies} = do
         <> [logPicture]
         <> ballPictures
         <> enemyPictures
-     --   <> blockPictures
-        <> [slingshot]
+        <> [slingshotPicture]
 
 renderEnemy :: Enemy -> IO Picture
 renderEnemy (Enemy gameObject) = renderGameObject gameObject
@@ -70,12 +61,6 @@ renderBall (Ball gameObject) = do
 renderBlock :: Block -> IO Picture
 renderBlock (Block gameObject) =do
   renderGameObject gameObject
-  -- bodyPos <- get $ blockBody & bodyPosition
-  -- bodyAngle <- get $ blockBody & bodyAngle
-  -- pure $
-  --   translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $
-  --     rotate (- (rad2deg $ double2Float bodyAngle)) $
-  --       blockPicture
 
 renderGameObject :: GameObject -> IO Picture
 renderGameObject GameObject{objBody, objPicture} = 
@@ -84,10 +69,10 @@ renderGameObject GameObject{objBody, objPicture} =
 genericRender :: Body -> Picture -> IO Picture
 genericRender body picture = do
   bodyPos <- get $ body & bodyPosition
-  bodyAngle <- get $ body & bodyAngle
+  bodyAngle' <- get $ body & bodyAngle
   pure $
     translate (double2Float $ vX bodyPos) (double2Float $ vY bodyPos) $
-      rotate (- (rad2deg $ double2Float bodyAngle)) picture
+      rotate (- (rad2deg $ double2Float bodyAngle')) picture
 
 
 groundPicture :: Picture

@@ -2,50 +2,36 @@
 
 module EventHandling where 
 
-import Assets (Assets (..))
-import qualified Assets
+import Assets
 import Chiphunk.Low
 import Collisions
 import Constants
-import Control.Concurrent.STM (STM)
-import qualified Control.Concurrent.STM as STM
-import Control.Concurrent.STM.TQueue (TQueue)
-import qualified Control.Concurrent.STM.TQueue as TQueue
-import Control.Monad (foldM, forM)
 import Data.Function ((&))
-import Data.StateVar (StateVar, mapStateVar)
-import Foreign.Ptr (nullPtr)
-import GHC.Float
-import GameLoop
-import Graphics.Gloss
-import Graphics.Gloss.Data.ViewPort
 import Graphics.Gloss.Interface.IO.Game
 import Physics
-import Rendering
 import System.Exit
-import Utils
 import World
 
-
-
 handleEvent :: Assets -> Event -> World -> IO World
+-- Quit key event
+handleEvent _ (EventKey (Char 'q') Down _ _) _ = exitSuccess
+
+-- Grabbed slingshot event
 handleEvent _ (EventMotion mousePos@(mX, mY)) world@World {slingshot = slingshot@Slingshot {slingshotRadius, slingshotCenter, slingshotState = Grabbed _}} =
-  do
-    let -- Final ball distance from its initial position after grab
+    pure world {slingshot = slingshot {slingshotState = Grabbed newPos}}
+    where 
+        -- Final ball distance from its initial position after grab
         ballDist = min distFromInitPos slingshotRadius
         -- Distance between mouse cursor and initial position
         distFromInitPos = distance slingshotCenter mousePos
         -- Unit vector between ball
-        v@(vX, vY) = ((mX - iX) / distFromInitPos, (mY - iY) / distFromInitPos)
+        (vX, vY) = ((mX - iX) / distFromInitPos, (mY - iY) / distFromInitPos)
         -- New Position
         newPos = (iX + ballDist * vX, iY + ballDist * vY)
         (iX, iY) = slingshotCenter
 
-    pure world {slingshot = slingshot {slingshotState = Grabbed newPos}}
-handleEvent _ (EventKey (Char 'q') Down _ _) _ = exitSuccess
-handleEvent
-  Assets{lambdaBall}
-  (EventKey (MouseButton LeftButton) Up _ _)
+-- Left mouse button UP event
+handleEvent Assets{lambdaBall} (EventKey (MouseButton LeftButton) Up _ _)
   world@World
     { space,
       slingshot =
@@ -77,6 +63,7 @@ handleEvent
         { slingshot = slingshot {slingshotState = Free},
           thrownBalls = newBall : thrownBalls
         }
+-- Left mouse button DOWN event
 handleEvent
   _
   (EventKey (MouseButton LeftButton) Down _ mousePos)
@@ -100,7 +87,9 @@ handleEvent
       pure world'
 handleEvent _ _ world = pure world
 
+-- Collision handling
 handleCollision :: Space -> World -> Collision -> IO World
+-- Enemy collision
 handleCollision
   space
   world
@@ -111,6 +100,7 @@ handleCollision
             objectBody = enemyBody
           }
     } = handleEnemyCollision space world enemyBody (collision & collisionTotalImpulse)
+--Enemy collision?
 handleCollision
   space
   world
@@ -121,6 +111,7 @@ handleCollision
             objectBody = enemyBody
           }
     } = handleEnemyCollision space world enemyBody (collision & collisionTotalImpulse)
+-- No collision
 handleCollision _ world _ = pure world
 
 handleEnemyCollision :: Space -> World -> Body -> (Float, Float) -> IO World
@@ -129,9 +120,9 @@ handleEnemyCollision space world enemyBody (impulseX, impulseY) = do
   if impulse > 100000
     then
       ( do
-          let iterFunc body shape _ =
+          let iterFunc _ shape _ = -- too many parameters TODO
                 spaceRemoveShape space shape
-          bodyEachShape enemyBody iterFunc nullPtr
+          bodyEachShape enemyBody iterFunc nullPtr -- do you need body?
           spaceRemoveBody space enemyBody
           pure $
             world
@@ -155,6 +146,6 @@ clipSlingshotPosition Slingshot {slingshotCenter, slingshotRadius} mousePos@(mX,
       -- Distance between mouse cursor and initial position
       distFromInitPos = distance slingshotCenter mousePos
       -- Unit vector between ball
-      v@(vX, vY) = ((mX - iX) / distFromInitPos, (mY - iY) / distFromInitPos)
+      (vX, vY) = ((mX - iX) / distFromInitPos, (mY - iY) / distFromInitPos)
       (iX, iY) = slingshotCenter
    in (iX + ballDist * vX, iY + ballDist * vY)

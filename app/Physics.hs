@@ -25,17 +25,6 @@ data DiscInfo a =
       , discElasticity :: a
       } deriving (Show, Functor)
 
-bodyPosition' :: Body -> StateVar (Float, Float)
-bodyPosition' body = mapStateVar to from (bodyPosition body)
-  where from (Vect x y) = (double2Float x, double2Float y)
-        to (x, y) = Vect (float2Double x) (float2Double y)
-
-
-bodyVelocity' :: Body -> StateVar (Float, Float)
-bodyVelocity' body = mapStateVar to from (bodyVelocity body)
-  where from (Vect x y) = (double2Float x, double2Float y)
-        to (x, y) = Vect (float2Double x) (float2Double y)
-
 createBox :: Space -> BoxInfo Float -> (Float, Float) -> IO Body
 createBox space boxInfo pos@(x, y) = do
   let BoxInfo{boxMass, boxSize = (w, h), boxFriction, boxElasticity} = float2Double <$> boxInfo
@@ -61,7 +50,7 @@ createBox space boxInfo pos@(x, y) = do
 
 
 createDisc :: Space -> DiscInfo Float -> (Float, Float) -> (Float, Float) -> IO Body
-createDisc space discInfo pos@(x, y) velocity@(vx, vy) = do
+createDisc space discInfo pos velocity = do
   let DiscInfo{discMass, discRadius, discFriction, discElasticity} = float2Double <$> discInfo
       ballMoment = momentForCircle discMass 0 discRadius (Vect 0 0)
 
@@ -71,6 +60,7 @@ createDisc space discInfo pos@(x, y) velocity@(vx, vy) = do
   bodyVelocity' body $= velocity
   bodyAngle body $= 0
 
+  -- New shape
   ballShape <- circleShapeNew body discRadius (Vect 0 0)
 
   shapeFriction ballShape $= discFriction
@@ -82,3 +72,14 @@ createDisc space discInfo pos@(x, y) velocity@(vx, vy) = do
   spaceAddBody space body
 
   pure body
+
+bodyPosition' :: Body -> StateVar (Float, Float)
+bodyPosition' body = mapStateVar to from (bodyPosition body)
+  where from (Vect x y) = (double2Float x, double2Float y)
+        to (x, y) = Vect (float2Double x) (float2Double y)
+
+
+bodyVelocity' :: Body -> StateVar (Float, Float)
+bodyVelocity' body = mapStateVar to from (bodyVelocity body)
+  where from (Vect x y) = (double2Float x, double2Float y)
+        to (x, y) = Vect (float2Double x) (float2Double y)

@@ -1,9 +1,9 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module World where
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
-import Control.Monad (forM)
+module World where
 
 import Chiphunk.Low
 import Graphics.Gloss (Picture)
@@ -57,7 +57,7 @@ type Gravity = Vect
 -- **** Objects creation *****
 
 createWorld :: Assets -> Space -> IO World
-createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
+createWorld Assets {woodenLog, monsterBind} space = do
   
   -- Ground
   _ <- createGround space
@@ -97,8 +97,6 @@ createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
                     , slingshotCenter = (-700, 30)
                     , slingshotState = Free
                     }
-    ballInitPos :: Pos
-    ballInitPos = (-350, 200)
 
 
 createGround :: Space -> IO ()
@@ -110,7 +108,6 @@ createGround space = do
   leftGround <- segmentShapeNew spaceBody leftGroundA leftGroundB 0
   shapeFriction leftGround $= groundFriction
   shapeElasticity leftGround $= 0.9
-  groundCollisionType <- get $ shapeCollisionType leftGround
 
   spaceAddShape space leftGround
   shapeCollisionType' leftGround $= GroundCT
@@ -119,7 +116,6 @@ createGround space = do
   rightGround <- segmentShapeNew spaceBody rightGroundA rightGroundB 0
   shapeFriction rightGround $= groundFriction
   shapeElasticity rightGround $= 0.9
-  groundCollisionType <- get $ shapeCollisionType rightGround
 
   spaceAddShape space rightGround
   shapeCollisionType' rightGround $= GroundCT
@@ -137,9 +133,9 @@ createLog space logPicture boxInfo pos = do
         }
 
 createSpace :: Gravity -> IO Space
-createSpace gravity = do
+createSpace g = do
   space <- spaceNew
-  spaceGravity space $= gravity
+  spaceGravity space $= g
   pure space
 
 createBlock :: Space -> Picture -> BoxInfo Float -> Pos -> IO Block
@@ -170,20 +166,3 @@ instance Show Body where
 
 instance Show Space where
   show _ = "Space.."
-
-  -- -- Blocks
-  -- let boxInfo =
-  --       BoxInfo
-  --         { boxMass = 0.5,
-  --           boxFriction = 0.5,
-  --           boxElasticity = 0.8,
-  --           boxSize = (25, 250)
-  --         }
-  --     blocks =
-  --       [ (boxInfo, (1550, -25), 0),
-  --         (boxInfo, (1650, -25), 0),
-  --         (boxInfo, (1625, 250), 3.1415 / 2)
-  --       ]
-
-  -- blocks <- forM blocks $ \(box, pos, _) ->
-  --   createBlock space wood box pos

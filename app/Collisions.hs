@@ -31,7 +31,6 @@ data Collision = Collision
   , collisionTotalKineticEnergy :: Float
   }
 
-
 shapeCollisionType' :: Shape -> StateVar CollisionType'
 shapeCollisionType' =
   mapStateVar
@@ -54,7 +53,7 @@ createCollisionCallback space collisionQueue = do
   pure ()
 
 catchallCallback :: TQueue Collision -> CollisionCallback ()
-catchallCallback collisionQueue arbiter space _ = do
+catchallCallback collisionQueue arbiter _ _ = do
   (body1, body2) <- get $ arbiterBodies arbiter
   (shape1, shape2) <- get $ arbiterShapes arbiter
   collType1 <- get $ shapeCollisionType' shape1
@@ -66,7 +65,6 @@ catchallCallback collisionQueue arbiter space _ = do
   let collisionTotalImpulse = (double2Float  fx, double2Float fy)
       collisionTotalKineticEnergy = double2Float kineticEnergyDouble
 
-  enemyCollisionTotalImpulse <- get $ arbiterTotalImpulse arbiter
   STM.atomically $ TQueue.writeTQueue collisionQueue $ Collision
     { collisionObjA = CollisionObject
         { objectBody = body1

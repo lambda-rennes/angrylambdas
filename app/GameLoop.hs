@@ -20,11 +20,11 @@ gameLoop ::
   (Collision -> World -> IO World) ->
   (Float -> World -> IO World) ->
   IO ()
-gameLoop space initialWorld collisionQueue render processEvent processCollision advance =
+gameLoop s initialWorld collisionQueue render processEvent processCollision _ = -- TODO why unused
   playIO display black 60 initialWorld render processEvent advance'
   where
     advance' _ world = do
-      spaceStep space (1 / 60)
+      spaceStep s (1 / 60)
       collisions <- STM.atomically $ TQueue.flushTQueue collisionQueue
       foldM (flip processCollision) world collisions
 
