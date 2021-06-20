@@ -95,7 +95,7 @@ handleEnemyCollision space world enemyBody (impulseX, impulseY) = do
               isCurrentEnemy (Enemy gameObject) = objBody gameObject == enemyBody
           bodyEachShape enemyBody iterFunc nullPtr
           spaceRemoveBody space enemyBody
-          pure $ world { enemies = filter (not . isCurrentEnemy) (enemies body) } )
+          pure $ world { enemies = filter (not . isCurrentEnemy) (enemies world) } )
         
     else pure world
 
