@@ -43,6 +43,7 @@ handleEvent _ (EventKey (MouseButton LeftButton) Down _ position) world@World{sl
     --   , discElasticity :: a
 
 handleEvent Assets{lambdaBall} (EventKey (MouseButton LeftButton) Up _ position) world@World{slingshot, thrownBalls, space} =
+  -- also opportunity to use grabbed here - but don't want to disrupt any more :)
   case slingshotState slingshot of
     Free -> pure world
     Grabbed currentPosition -> do
@@ -60,7 +61,9 @@ handleEvent Assets{lambdaBall} (EventKey (MouseButton LeftButton) Up _ position)
             , discFriction = ballFriction
             , discElasticity = 0.7
             }
-        speedVector = (0, 0)
+        speedVector = (slingshotX - currentX, slingshotY - currentY)
+        (currentX, currentY) = currentPosition
+        (slingshotX, slingshotY)  = slingshotCenter slingshot
 -- grabbed :: a -> (Pos -> a) -> Grabbed -> a
 handleEvent _ (EventMotion position) world@World{slingshot} =
   pure
