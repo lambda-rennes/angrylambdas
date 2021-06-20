@@ -35,6 +35,11 @@ handleEvent _ (EventKey (MouseButton LeftButton) Down _ position) world@World{sl
   where
     Slingshot{slingshotBallRadius, slingshotCenter} = slingshot 
     clickedSlingshot = slingshotBallRadius >= distance slingshotCenter position
+
+handleEvent _ (EventKey (MouseButton LeftButton) Up _ position) world@World{slingshot} =
+  pure $ world { slingshot = slingshot { slingshotState = Free } }
+
+
 handleEvent _ _ world = pure world
 
 handleCollision :: Space -> World -> Collision -> IO World
