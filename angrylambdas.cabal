@@ -45,6 +45,7 @@ executable angrylambdas
       Assets
       Collisions
       Constants
+      EventHandling
       GameLoop
       Physics
       Rendering

@@ -13,23 +13,16 @@ import Physics
 import Collisions
 import Constants
 
+-- World record
 data World = World
   { space :: Space,
-    blocks :: [Block],
     slingshot :: Slingshot,
     log' :: Log,
     thrownBalls :: [Ball],
     enemies :: [Enemy]
   }
 
-data Slingshot = Slingshot
-  { slingshotRadius :: Float,
-    slingshotBallRadius :: Float,
-    slingshotCenter :: Pos,
-    slingshotState :: Grabbed
-  }
-  deriving (Show)
-
+-- type aliases for Objects
 newtype Log = Log GameObject
 
 newtype Ball = Ball GameObject
@@ -43,107 +36,70 @@ data GameObject = GameObject
     objBody :: Body
   }
 
+-- Slingshot
+data Slingshot = Slingshot
+  { slingshotRadius :: Float,
+    slingshotBallRadius :: Float,
+    slingshotCenter :: Pos,
+    slingshotState :: Grabbed
+  }
+  deriving (Show)
+
+-- Utils types
 type Pos = (Float, Float)
 
 data Grabbed = Grabbed Pos | Free deriving (Show)
 
 type Radius = Float
 
-instance Show Body where
-  show _ = "Body..."
+type Gravity = Vect
 
-instance Show Space where
-  show _ = "Space.."
-
-initSlingshotPos :: Num a => (a, a)
-initSlingshotPos = (-350, 200)
-
-leftBankAX, leftBankAY, leftBankBX, leftBankBY :: Floating a => a
-leftBankAX = -960
-leftBankAY = -220
-leftBankBX = -310
-leftBankBY = -175
-
-rightBankAX, rightBankAY, rightBankBX, rightBankBY :: Floating a => a
-rightBankAX = 225
-rightBankAY = -150
-rightBankBX = 960
-rightBankBY = -100
-
-leftGroundA :: Vect
-leftGroundB :: Vect
-(leftGroundA, leftGroundB) =
-  ( Vect leftBankAX leftBankAY,
-    Vect leftBankBX leftBankBY
-  )
-
-rightGroundA :: Vect
-rightGroundB :: Vect
-(rightGroundA, rightGroundB) =
-  ( Vect rightBankAX rightBankAY,
-    Vect rightBankBX rightBankBY
-  )
-
-createLog :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log
-createLog space logPicture boxInfo pos = do
-  objBody <- createBox space boxInfo pos
-  pure $
-    Log $
-      GameObject
-        { objPicture = logPicture,
-          objBody
-        }
+-- **** Objects creation *****
 
 createWorld :: Assets -> Space -> IO World
 createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
+  
   -- Ground
   _ <- createGround space
 
   -- Log
-  let logInfo =
-        BoxInfo
-          { boxMass = 2,
-            boxSize = (700, 90),
-            boxFriction = 0.5,
-            boxElasticity = 0.8
-          }
-
-  let logPos = (0, -80)
-
   logObj <- createLog space woodenLog logInfo logPos
 
-  -- Blocks
-  let boxInfo =
-        BoxInfo
-          { boxMass = 0.5,
-            boxFriction = 0.5,
-            boxElasticity = 0.8,
-            boxSize = (25, 250)
-          }
-      blocks =
-        [ (boxInfo, (1550, -25), 0),
-          (boxInfo, (1650, -25), 0),
-          (boxInfo, (1625, 250), 3.1415 / 2)
-        ]
-
-  blocks <- forM blocks $ \(box, pos, _) ->
-    createBlock space wood box pos
-
-  -- Ball
-  -- ballBody <- createBall space ballRadius (Vect (-100) 300) (Vect 200 0)
-  let discInfo =
-        DiscInfo
-          { discRadius = ballRadius,
-            discElasticity = 0.9,
-            discFriction = 5,
-            discMass = 5
-          }
-  enemy <- createEnemy space monsterBind discInfo (350, 60) (50, 0)
-
-  -- logImg <- lambda <- loadBMP "imgs/lambda.bmp"
+  -- Enemy
+  enemy <- createEnemy space monsterBind enemyInfo enemyPos (50, 0)
 
   -- World
-  pure $ World space blocks initSlingshot logObj [] [enemy]
+  pure $ World space initSlingshot logObj [] [enemy]
+
+  where 
+    logInfo :: BoxInfo Float
+    logInfo =  BoxInfo
+               { boxMass = 2,
+                 boxSize = (700, 90),
+                 boxFriction = 0.5,
+                 boxElasticity = 0.8
+               } 
+    logPos :: Pos
+    logPos = (0, -80)
+    enemyInfo :: DiscInfo Float
+    enemyInfo = DiscInfo
+                { discRadius = ballRadius,
+                  discElasticity = 0.9,
+                  discFriction = 5,
+                  discMass = 5
+                }
+    enemyPos :: Pos
+    enemyPos = (350, 60)
+    initSlingshot :: Slingshot
+    initSlingshot = Slingshot
+                    { slingshotBallRadius = ballRadius
+                    , slingshotRadius = 300
+                    , slingshotCenter = (-700, 30)
+                    , slingshotState = Free
+                    }
+    ballInitPos :: Pos
+    ballInitPos = (-350, 200)
+
 
 createGround :: Space -> IO ()
 createGround space = do
@@ -170,25 +126,21 @@ createGround space = do
 
   pure ()
 
-type Gravity = Vect
+createLog :: Space -> Picture -> BoxInfo Float -> Pos -> IO Log
+createLog space logPicture boxInfo pos = do
+  objBody <- createBox space boxInfo pos
+  pure $
+    Log $
+      GameObject
+        { objPicture = logPicture,
+          objBody
+        }
 
 createSpace :: Gravity -> IO Space
 createSpace gravity = do
   space <- spaceNew
   spaceGravity space $= gravity
   pure space
-
-
-ballInitPos :: Pos
-ballInitPos = initSlingshotPos
-
-initSlingshot :: Slingshot
-initSlingshot = Slingshot
-  { slingshotBallRadius = ballRadius
-  , slingshotRadius = 300
-  , slingshotCenter = (-700, 30)
-  , slingshotState = Free
-  }
 
 createBlock :: Space -> Picture -> BoxInfo Float -> Pos -> IO Block
 createBlock space objPicture boxInfo pos = do
@@ -205,3 +157,33 @@ createEnemy :: Space -> Picture -> DiscInfo Float -> Pos -> (Float, Float) -> IO
 createEnemy space objPicture discInfo pos velocity = do
   objBody <- createDisc space discInfo pos velocity
   pure $ Enemy $ GameObject {..}
+
+
+distance :: Pos -> Pos -> Float
+distance (x1, y1) (x2, y2) = sqrt $ (x2 - x1) ** 2 + (y2 - y1) ** 2
+
+advanceWorld :: Float -> World -> World
+advanceWorld _ world = world
+
+instance Show Body where
+  show _ = "Body..."
+
+instance Show Space where
+  show _ = "Space.."
+
+  -- -- Blocks
+  -- let boxInfo =
+  --       BoxInfo
+  --         { boxMass = 0.5,
+  --           boxFriction = 0.5,
+  --           boxElasticity = 0.8,
+  --           boxSize = (25, 250)
+  --         }
+  --     blocks =
+  --       [ (boxInfo, (1550, -25), 0),
+  --         (boxInfo, (1650, -25), 0),
+  --         (boxInfo, (1625, 250), 3.1415 / 2)
+  --       ]
+
+  -- blocks <- forM blocks $ \(box, pos, _) ->
+  --   createBlock space wood box pos

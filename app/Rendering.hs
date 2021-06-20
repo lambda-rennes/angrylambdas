@@ -14,7 +14,7 @@ import Chiphunk.Low
 import Constants
 
 render :: Assets -> World -> IO Picture
-render assets@Assets {..} World {blocks, slingshot, log', thrownBalls, enemies} = do
+render assets@Assets {..} World {slingshot, log', thrownBalls, enemies} = do
   let getPosAngle body = (,) <$> get (bodyPosition body) <*> get (bodyAngle body)
 
   -- ballPosAngles <- traverse getPosAngle thrownBalls
@@ -24,7 +24,7 @@ render assets@Assets {..} World {blocks, slingshot, log', thrownBalls, enemies} 
   ballPictures <- traverse renderBall thrownBalls
   enemyPictures <- traverse renderEnemy enemies
 
-  blockPictures <- traverse renderBlock blocks
+  --blockPictures <- traverse renderBlock blocks
 
   slingshot <- renderSlingshot assets slingshot
   logPicture <- renderLog log'
@@ -36,7 +36,7 @@ render assets@Assets {..} World {blocks, slingshot, log', thrownBalls, enemies} 
         <> [logPicture]
         <> ballPictures
         <> enemyPictures
-        <> blockPictures
+     --   <> blockPictures
         <> [slingshot]
 
 renderEnemy :: Enemy -> IO Picture
