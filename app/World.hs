@@ -121,8 +121,8 @@ createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
             boxSize = (25, 250)
           }
       blocks =
-        [ (boxInfo, (1450, -25), 0),
-          (boxInfo, (1550, -25), 0),
+        [ (boxInfo, (1550, -25), 0),
+          (boxInfo, (1650, -25), 0),
           (boxInfo, (1625, 250), 3.1415 / 2)
         ]
 
@@ -138,7 +138,7 @@ createWorld assets@Assets {woodenLog, wood, monsterBind} space = do
             discFriction = 5,
             discMass = 5
           }
-  enemy <- createEnemy space monsterBind discInfo (1500, 400) (50, 0)
+  enemy <- createEnemy space monsterBind discInfo (350, 60) (50, 0)
 
   -- logImg <- lambda <- loadBMP "imgs/lambda.bmp"
 
