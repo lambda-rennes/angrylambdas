@@ -20,6 +20,7 @@ handleEvent :: Assets -> Event -> World -> IO World
 -- Quit key event
 handleEvent _ (EventKey (Char 'q') Down _ _) _ = exitSuccess
 handleEvent _ (EventKey (MouseButton LeftButton) Up _ _) world = do
+  print $ slingshotCenter . slingshot $ world
   putStrLn "Slingshot clicked!"
   return world
 handleEvent _ _ world = pure world
