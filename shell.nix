@@ -3,7 +3,9 @@
 #  sha256 = "0fsl8bsdb8i536pfs4wrp0826h5l84xqlwx32sbz66jg4ykqp9lr";
 #}; in
 
-with (import <nixpkgs> {});
+let pkgsSrc = fetchTarball "https://github.com/NixOS/nixpkgs/archive/c40c611ff9e58a73c2cc277a047117d84082ec8d.tar.gz"; in
+
+with (import pkgsSrc {});
 
 let
   ghc = haskell.packages.ghc884.ghcWithPackages (_: []);
